@@ -4,7 +4,9 @@ from typing import Dict
 from datetime import datetime, timezone
 
 from app.services.snowflake import db
+from app.services.redis_cache import cache
 from app.config import settings
+import boto3
 
 router = APIRouter()
 
@@ -21,6 +23,32 @@ async def check_snowflake() -> str:
     except Exception:
         return "unhealthy"
 
+async def check_redis() -> str:
+    try:
+        if cache.client.ping():
+            return "healthy"
+        return "unhealthy"
+    except Exception:
+        return "unhealthy"
+
+async def check_s3() -> str:
+    # S3 check - returns 'disabled' if not configured to avoid startup issues
+    if not settings.S3_BUCKET or not settings.AWS_ACCESS_KEY_ID:
+        return "disabled"
+        
+    try:
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=settings.AWS_REGION
+        )
+        # Verify connectivity
+        s3.head_bucket(Bucket=settings.S3_BUCKET)
+        return "healthy"
+    except Exception:
+        # If configured but fails, return unhealthy
+        return "unhealthy"
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -31,7 +59,7 @@ async def health_check():
     
     dependencies = {
         "snowflake": await check_snowflake(),
-        # "redis": await check_redis(),
+        "redis": await check_redis(),
         # "s3": await check_s3(), # S3 check not happening because it is not yet setup
     }
     
