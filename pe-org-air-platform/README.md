@@ -29,8 +29,6 @@ The **PE Org-AI-R Platform** is a sophisticated data orchestration and analytics
 *   **Architecture Diagram**:
     ![Architecture Diagram](./Architecture_Diagram.jpeg)
 *   **Video Demonstration**: *[Placeholder: Video Demo URL]*
-*   **Architecture Diagram**:
-    ![Architecture Diagram](./Architecture_Diagram.jpeg)
 
 ---
 
