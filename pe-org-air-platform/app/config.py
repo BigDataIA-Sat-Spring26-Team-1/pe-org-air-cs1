@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     LOG_FORMAT: Literal["json", "console"] = "json"
     SECRET_KEY: SecretStr
     
+    # External API Keys
+    PATENTSVIEW_API_KEY: SecretStr = None
+    
     # Snowflake
     SNOWFLAKE_ACCOUNT: str
     SNOWFLAKE_USER: str
@@ -28,8 +31,8 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
 
     # AWS S3
-    AWS_ACCESS_KEY_ID: Optional[SecretStr] = None
-    AWS_SECRET_ACCESS_KEY: Optional[SecretStr] = None
+    AWS_ACCESS_KEY_ID: SecretStr = None
+    AWS_SECRET_ACCESS_KEY: SecretStr = None
     AWS_REGION: str = "us-east-1"
     S3_BUCKET: Optional[str] = None
 
