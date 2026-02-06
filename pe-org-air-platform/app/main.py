@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.services.snowflake import db
 from app.logging_conf import setup_logging, get_logger
+from app.routers import companies, assessments, health, industries, config, signals, sec, evidence, metrics, testing
 
 # Setup logging
 setup_logging()
@@ -65,11 +66,12 @@ async def lifespan(app: FastAPI):
 
         # 2. Run Schema Migrations
         await execute_sql_file("app/database/schema.sql", "schema initialization")
+        await execute_sql_file("app/database/schema_sec.sql", "SEC schema initialization")
+        await execute_sql_file("app/database/schema_signal.sql", "signals schema initialization")
 
         # 3. Check for Seed Data
         try:
-            count_res = await db.fetch_one("SELECT COUNT(*) AS cnt FROM industries")
-            count = count_res['cnt'] if count_res else 0
+            count = await db.count_industries()
             
             if count == 0:
                 logger.info("Industries table is empty. Auto-seeding...")
@@ -92,7 +94,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
+    description="""
+# PE OrgAIR Platform
+Intelligence-driven platform for assessing AI Maturity in Private Equity target companies.
+    
+## Features
+* **External Intelligence**: Dynamically collect signals (jobs, patents, tech stack) from top web sources.
+* **SEC Pipeline**: Automated download, parsing, and semantic chunking of SEC filings.
+* **AI Maturity Assessment**: Structured framework for evaluating companies across 7 key dimensions.
+* **Snowflake Integration**: High-performance data storage and enrichment.
+    """,
     version=settings.APP_VERSION,
+    contact={
+        "name": "Advanced Agentic Coding Team",
+        "url": "https://github.com/pe-org-air",
+    },
+    license_info={
+        "name": "Proprietary",
+    },
     lifespan=lifespan
 )
 
@@ -104,6 +123,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include Routers
+app.include_router(health.router, tags=["Health"])
+app.include_router(config.router, prefix="/api/v1/config", tags=["Configuration"])
+app.include_router(industries.router, prefix="/api/v1/industries", tags=["Industries"])
+app.include_router(companies.router, prefix="/api/v1/companies", tags=["Companies"])
+app.include_router(sec.router, prefix="/api/v1/documents", tags=["Documents"])
+app.include_router(signals.router, prefix="/api/v1/signals", tags=["External Signals"])
+app.include_router(evidence.router, prefix="/api/v1/evidence", tags=["Evidence"])
+app.include_router(assessments.router, prefix="/api/v1", tags=["Assessments"])
+app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
+app.include_router(testing.router, prefix="/api/v1/system", tags=["System Testing"])
 
 @app.get("/")
 async def root():
