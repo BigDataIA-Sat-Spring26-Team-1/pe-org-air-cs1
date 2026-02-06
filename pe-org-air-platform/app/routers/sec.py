@@ -46,9 +46,6 @@ async def collect_documents(req: SecCollectRequest, background_tasks: Background
     if not tickers:
         raise HTTPException(400, "tickers list is empty")
 
-    if req.company_name:
-         await db.upsert_sec_company(req.company_name, tickers[0])
-
     started_tickers = []
     for t in tickers:
         if t in active_tasks:
