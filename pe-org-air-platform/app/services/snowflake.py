@@ -1,28 +1,71 @@
 import snowflake.connector
 from snowflake.connector import DictCursor
-from typing import List, Dict, Any, Optional
+from snowflake.connector.pandas_tools import write_pandas
+import logging
+import json
+import os
+import uuid
 import asyncio
 import threading
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from typing import List, Dict, Any, Optional
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
+# Silence Snowflake connector noise
+logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
+
 class SnowflakeService:
+    @staticmethod
+    def _clean_data(val: Any) -> Any:
+        """Sanitizes data for Snowflake ingestion, handling NaN and None cases."""
+        if val is None:
+            return None
+        # Handle Pandas/Numpy NaN
+        if isinstance(val, (float, int)) and (np.isnan(val) or np.isinf(val)):
+            return 0.0
+        if isinstance(val, str):
+            v_lower = val.lower().strip()
+            if v_lower in ['nan', 'none', 'null', '']:
+                return None
+            return val
+        if isinstance(val, (dict, list)):
+            # Deep clean JSON structures
+            return json.loads(json.dumps(val, default=lambda x: None).replace(': NaN', ': null').replace(': nan', ': null'))
+        return val
+
     def __init__(self):
         self.conn_params = {
             "user": settings.SNOWFLAKE_USER,
-            "password": settings.SNOWFLAKE_PASSWORD,
+            "password": settings.SNOWFLAKE_PASSWORD.get_secret_value(),
             "account": settings.SNOWFLAKE_ACCOUNT,
             "warehouse": settings.SNOWFLAKE_WAREHOUSE,
             "database": settings.SNOWFLAKE_DATABASE,
             "schema": settings.SNOWFLAKE_SCHEMA,
             "role": settings.SNOWFLAKE_ROLE,
         }
+
         self._conn = None
         self._lock = threading.Lock()
 
     def get_connection(self):
         with self._lock:
             if self._conn is None or self._is_connection_closed():
-                self._conn = snowflake.connector.connect(**self.conn_params)
+                # Configuration to support Docker environments where OCSP validation may fail
+                snowflake.connector.paramstyle = 'pyformat'
+                
+                self._conn = snowflake.connector.connect(
+                    **self.conn_params,
+                    autocommit=True,
+                    insecure_mode=True,  # Bypass OCSP validation for compatibility
+                    session_parameters={
+                        'PYTHON_CONNECTOR_QUERY_RESULT_FORMAT': 'JSON',  # Prefer JSON to minimize S3 dependencies
+                        'USE_CACHED_RESULT': False
+                    }
+                )
         return self._conn
     
     def _is_connection_closed(self) -> bool:
@@ -51,8 +94,71 @@ class SnowflakeService:
     
     def _execute_update(self, query: str, params: tuple = None) -> None:
         conn = self.get_connection()
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
+        logger.debug(f"Executing SQL: {query}")
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+            conn.commit()
+            logger.debug("SQL Execution and Commit successful.")
+        except Exception as e:
+            logger.error(f"SQL Execution failed: {e}")
+            raise
+
+    def _execute_many(self, query: str, params_list: List[tuple]) -> None:
+        if not params_list:
+            return
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.executemany(query, params_list)
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Bulk SQL Execution failed: {e}")
+            conn.rollback()
+            raise
+
+    def _batch_write_df(self, df: pd.DataFrame, table_name: str) -> None:
+        """Helper to write a DataFrame to Snowflake using the optimized write_pandas."""
+        if df.empty:
+            return
+        conn = self.get_connection()
+        
+        # Primary method: write_pandas (fastest)
+        try:
+            df_copy = df.copy()
+            df_copy.columns = [c.upper() for c in df_copy.columns]
+            success, nchunks, nrows, _ = write_pandas(
+                conn=conn,
+                df=df_copy,
+                table_name=table_name.upper(),
+                quote_identifiers=False,
+                auto_create_table=False
+            )
+            if not success:
+                raise Exception(f"write_pandas reported failure")
+            logger.info(f"Bulk-loaded {nrows} rows into {table_name} via write_pandas.")
+            return
+        except Exception as e:
+            logger.warning(f"write_pandas failed for {table_name}, using SQL fallback: {e}")
+            
+        # Fallback: Direct SQL insert
+        try:
+            columns = df.columns.tolist()
+            placeholders = ', '.join(['%s'] * len(columns))
+            col_names = ', '.join(columns)
+            insert_sql = f"INSERT INTO {table_name} ({col_names}) VALUES ({placeholders})"
+            
+            # Convert DataFrame to list of tuples
+            values = [tuple(row) for row in df.values]
+            
+            with conn.cursor() as cursor:
+                cursor.executemany(insert_sql, values)
+            conn.commit()
+            logger.info(f"Bulk-loaded {len(values)} rows into {table_name} via SQL fallback.")
+        except Exception as fallback_error:
+            logger.error(f"SQL fallback failed for {table_name}: {fallback_error}")
+            conn.rollback()
+            raise
 
     async def fetch_all(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
         return await asyncio.to_thread(self._execute_query, query, params)
@@ -64,6 +170,9 @@ class SnowflakeService:
 
     async def execute(self, query: str, params: tuple = None) -> None:
         await asyncio.to_thread(self._execute_update, query, params)
+        
+    async def execute_many(self, query: str, params_list: List[tuple]) -> None:
+        await asyncio.to_thread(self._execute_many, query, params_list)
     
     # Companies
     async def fetch_company(self, company_id: str) -> Optional[Dict[str, Any]]:
@@ -193,5 +302,139 @@ class SnowflakeService:
     async def update_dimension_score(self, score_id: str, score: float, confidence: float) -> None:
         query = "UPDATE dimension_scores SET score = %s, confidence = %s WHERE id = %s"
         await self.execute(query, (score, confidence, score_id))
+
+    # External Signals
+    async def create_external_signal(self, signal: Dict[str, Any]) -> None:
+        query = """
+            INSERT INTO external_signals (id, signal_hash, company_id, category, source, signal_date, raw_value, normalized_score, confidence, metadata, created_at)
+            SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, PARSE_JSON(%s), CURRENT_TIMESTAMP()
+        """
+        params = (
+            str(signal['id']),
+            signal.get('signal_hash'),
+            str(signal['company_id']),
+            str(signal['category'].value if hasattr(signal['category'], 'value') else signal['category']),
+            str(signal['source']),
+            str(signal['signal_date']),
+            signal.get('raw_value'),
+            signal.get('normalized_score'),
+            signal.get('confidence'),
+            json.dumps(signal.get('metadata', {})) if isinstance(signal.get('metadata'), dict) else signal.get('metadata')
+        )
+        await self.execute(query, params)
+
+    async def create_external_signals_bulk(self, signals: List[Dict[str, Any]]) -> None:
+        if not signals: return
+        
+        now_date = datetime.now().date()
+        processed = []
+        for s in signals:
+            clean_s = {
+                "id": str(s['id']),
+                "signal_hash": str(s.get('signal_hash', '')),
+                "company_id": str(s['company_id']),
+                "category": str(s['category'].value if hasattr(s['category'], 'value') else s['category']),
+                "source": str(s['source']),
+                "signal_date": self._clean_data(s.get('signal_date')) or now_date,
+                "raw_value": str(self._clean_data(s.get('raw_value')) or '')[:500],
+                "normalized_score": float(self._clean_data(s.get('normalized_score')) or 0.0),
+                "confidence": float(self._clean_data(s.get('confidence')) or 0.0),
+                "metadata": json.dumps(self._clean_data(s.get('metadata', {})))
+            }
+            # Convert date string to actual date object for pandas/arrow
+            if isinstance(clean_s["signal_date"], str):
+                try:
+                    clean_s["signal_date"] = datetime.strptime(clean_s["signal_date"], '%Y-%m-%d').date()
+                except:
+                    clean_s["signal_date"] = now_date
+            processed.append(clean_s)
+
+        df = pd.DataFrame(processed)
+        await asyncio.to_thread(self._batch_write_df, df, "external_signals")
+
+    async def create_signal_evidence_bulk(self, evidence_list: List[Dict[str, Any]]) -> None:
+        if not evidence_list: return
+        
+        now_date = datetime.now().date()
+        processed = []
+        for e in evidence_list:
+            desc = self._clean_data(e.get('description'))
+            clean_e = {
+                "id": str(e['id']),
+                "signal_id": str(e['signal_id']),
+                "company_id": str(e['company_id']),
+                "category": str(e['category'].value if hasattr(e['category'], 'value') else e['category']),
+                "source": str(e['source']),
+                "title": str(self._clean_data(e['title']))[:500],
+                "description": str(desc)[:2000] if desc else None,
+                "url": str(self._clean_data(e.get('url')))[:1000] if e.get('url') else None,
+                "tags": json.dumps(self._clean_data(e.get('tags', []))),
+                "evidence_date": self._clean_data(e.get('evidence_date')) or now_date,
+                "metadata": json.dumps(self._clean_data(e.get('metadata', {})))
+            }
+            if isinstance(clean_e["evidence_date"], str):
+                try:
+                    clean_e["evidence_date"] = datetime.strptime(clean_e["evidence_date"], '%Y-%m-%d').date()
+                except:
+                    clean_e["evidence_date"] = now_date
+            processed.append(clean_e)
+
+        df = pd.DataFrame(processed)
+        await asyncio.to_thread(self._batch_write_df, df, "signal_evidence")
+
+    async def upsert_company_signal_summary(self, summary: Dict[str, Any]) -> None:
+        query = """
+            MERGE INTO company_signal_summaries AS target
+            USING (SELECT %s AS company_id, %s AS ticker, %s AS technology_hiring_score, %s AS innovation_activity_score, %s AS digital_presence_score, %s AS leadership_signals_score, %s AS composite_score, %s AS signal_count) AS source
+            ON target.company_id = source.company_id
+            WHEN MATCHED THEN
+                UPDATE SET 
+                    ticker = source.ticker,
+                    technology_hiring_score = source.technology_hiring_score,
+                    innovation_activity_score = source.innovation_activity_score,
+                    digital_presence_score = source.digital_presence_score,
+                    leadership_signals_score = source.leadership_signals_score,
+                    composite_score = source.composite_score,
+                    signal_count = source.signal_count,
+                    last_updated = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN
+                INSERT (company_id, ticker, technology_hiring_score, innovation_activity_score, digital_presence_score, leadership_signals_score, composite_score, signal_count, last_updated)
+                VALUES (source.company_id, source.ticker, source.technology_hiring_score, source.innovation_activity_score, source.digital_presence_score, source.leadership_signals_score, source.composite_score, source.signal_count, CURRENT_TIMESTAMP())
+        """
+        params = (
+            str(summary['company_id']),
+            summary['ticker'],
+            summary.get('technology_hiring_score', 0.0),
+            summary.get('innovation_activity_score', 0.0),
+            summary.get('digital_presence_score', 0.0),
+            summary.get('leadership_signals_score', 0.0),
+            summary.get('composite_score', 0.0),
+            summary.get('signal_count', 0)
+        )
+        await self.execute(query, params)
+
+    async def fetch_company_signal_summary(self, company_id: str) -> Optional[Dict[str, Any]]:
+        query = "SELECT * FROM company_signal_summaries WHERE company_id = %s"
+        return await self.fetch_one(query, (company_id,))
+
+    async def fetch_external_signals(self, company_id: str, category: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        query = "SELECT * FROM external_signals WHERE company_id = %s"
+        params = [company_id]
+        if category:
+            query += " AND category = %s"
+            params.append(category)
+        query += " ORDER BY signal_date DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        return await self.fetch_all(query, tuple(params))
+
+    async def fetch_signal_evidence(self, company_id: str, category: Optional[str] = None, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        query = "SELECT * FROM signal_evidence WHERE company_id = %s"
+        params = [company_id]
+        if category:
+            query += " AND category = %s"
+            params.append(category)
+        query += " ORDER BY evidence_date DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        return await self.fetch_all(query, tuple(params))
 
 db = SnowflakeService()
