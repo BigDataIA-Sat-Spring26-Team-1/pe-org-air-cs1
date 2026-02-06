@@ -113,7 +113,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(config.router, prefix="/api/v1/config", tags=["Configuration"])
 app.include_router(industries.router, prefix="/api/v1/industries", tags=["Industries"])
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["Companies"])
-app.include_router(sec.router, prefix="/api/v1/sec", tags=["SEC"])
+app.include_router(sec.router, prefix="/api/v1/documents", tags=["Documents"])
 app.include_router(signals.router, prefix="/api/v1/signals", tags=["External Signals"])
 app.include_router(assessments.router, prefix="/api/v1", tags=["Assessments"])
 
