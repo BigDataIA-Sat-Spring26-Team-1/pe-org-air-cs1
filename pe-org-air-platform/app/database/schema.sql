@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS companies (
     ticker VARCHAR(10),
     industry_id VARCHAR(36) REFERENCES industries(id),
     position_factor DECIMAL(4, 3) DEFAULT 0.0,
+    cik VARCHAR(20),
+    name_norm VARCHAR(255),
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
     updated_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()

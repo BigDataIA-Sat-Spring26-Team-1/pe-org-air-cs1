@@ -13,9 +13,9 @@ class SemanticChunker:
         # Delimiters in order of priority to split by
         self.separators = ["\n\n", "\n", ". ", " ", ""]
 
-    def split_text(self, text: str) -> List[str]:
+    def chunk(self, text: str) -> List[str]:
         """
-        Recursively splits text.
+        Recursively splits text into chunks.
         """
         final_chunks = []
         if not text:

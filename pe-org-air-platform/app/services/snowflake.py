@@ -249,22 +249,24 @@ class SnowflakeService:
 
     async def create_company(self, company: Dict[str, Any]) -> None:
         query = """
-            INSERT INTO companies (id, name, ticker, industry_id, position_factor, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            INSERT INTO companies (id, name, ticker, industry_id, position_factor, cik, name_norm, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
         """
         params = (
             str(company['id']), 
             company['name'], 
             company['ticker'], 
             str(company['industry_id']), 
-            company['position_factor']
+            company['position_factor'],
+            company.get('cik'),
+            company.get('name_norm')
         )
         await self.execute(query, params)
 
     async def update_company(self, company_id: str, company: Dict[str, Any]) -> None:
         query = """
             UPDATE companies 
-            SET name = %s, ticker = %s, industry_id = %s, position_factor = %s, updated_at = CURRENT_TIMESTAMP()
+            SET name = %s, ticker = %s, industry_id = %s, position_factor = %s, cik = %s, name_norm = %s, updated_at = CURRENT_TIMESTAMP()
             WHERE id = %s
         """
         params = (
@@ -272,6 +274,8 @@ class SnowflakeService:
             company['ticker'],
             str(company['industry_id']),
             company['position_factor'],
+            company.get('cik'),
+            company.get('name_norm'),
             company_id
         )
         await self.execute(query, params)
@@ -483,26 +487,15 @@ class SnowflakeService:
         return await self.fetch_all(query, tuple(params))
 
     # SEC Documents
-    async def upsert_sec_company(self, company_name: str, ticker: str) -> None:
+    async def update_company_cik(self, ticker: str, cik: str, company_name: str) -> None:
+        """Update CIK and normalized name for a company based on ticker."""
         name_norm = " ".join((company_name or "").strip().casefold().split())
         query = """
-            MERGE INTO sec_companies AS target
-            USING (SELECT %s AS company_name_norm) AS source
-            ON target.company_name_norm = source.company_name_norm
-            WHEN MATCHED THEN UPDATE SET
-                company_name = %s,
-                ticker = %s,
-                updated_at = CURRENT_TIMESTAMP()
-            WHEN NOT MATCHED THEN INSERT (company_name_norm, company_name, ticker, created_at, updated_at)
-            VALUES (%s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+            UPDATE companies 
+            SET cik = %s, name_norm = %s, updated_at = CURRENT_TIMESTAMP()
+            WHERE ticker = %s AND (cik IS NULL OR name_norm IS NULL)
         """
-        params = (name_norm, company_name, ticker, name_norm, company_name, ticker)
-        await self.execute(query, params)
-
-    async def fetch_sec_company_by_norm_name(self, company_name: str) -> Optional[Dict[str, Any]]:
-        name_norm = " ".join((company_name or "").strip().casefold().split())
-        query = "SELECT * FROM sec_companies WHERE company_name_norm = %s LIMIT 1"
-        return await self.fetch_one(query, (name_norm,))
+        await self.execute(query, (cik, name_norm, ticker))
 
     async def fetch_sec_documents(
         self, 
@@ -559,6 +552,56 @@ class SnowflakeService:
             LIMIT %s OFFSET %s
         """
         params.extend([limit, offset])
+        return await self.fetch_all(query, tuple(params))
+
+    # Analytical Metrics
+    async def fetch_industry_distribution(self) -> List[Dict[str, Any]]:
+        query = """
+            SELECT i.name, COUNT(c.id) as count
+            FROM industries i
+            LEFT JOIN companies c ON i.id = c.industry_id
+            WHERE c.is_deleted = FALSE OR c.id IS NULL
+            GROUP BY i.name
+            ORDER BY count DESC
+        """
+        return await self.fetch_all(query)
+
+    async def fetch_company_metrics(self, company_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        where_clause = ""
+        params = []
+        if company_id:
+            where_clause = "AND c.id = %s"
+            params.append(company_id)
+            
+        query = f"""
+            SELECT 
+                c.id, 
+                c.name, 
+                c.ticker,
+                (SELECT COUNT(*) FROM external_signals s WHERE s.company_id = c.id) as signals,
+                (SELECT COUNT(*) FROM signal_evidence e WHERE e.company_id = c.id) as evidence,
+                (SELECT COUNT(*) FROM documents d WHERE d.cik = c.cik OR (c.ticker IS NOT NULL AND d.cik = c.ticker)) as filings
+            FROM companies c
+            WHERE c.is_deleted = FALSE {where_clause}
+            ORDER BY signals DESC
+        """
+        # Note: We fallback to ticker if CIK isn't set yet because the pipeline might use ticker as CIK initially
+        return await self.fetch_all(query, tuple(params))
+
+    async def fetch_signal_category_distribution(self, company_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        where_clause = ""
+        params = []
+        if company_id:
+            where_clause = "WHERE company_id = %s"
+            params.append(company_id)
+            
+        query = f"""
+            SELECT category, COUNT(*) as count
+            FROM external_signals
+            {where_clause}
+            GROUP BY category
+            ORDER BY count DESC
+        """
         return await self.fetch_all(query, tuple(params))
 
 db = SnowflakeService()

@@ -31,9 +31,9 @@ export default function RootLayout({
 
             <nav className="space-y-1">
               <NavItem href="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />
+              <NavItem href="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
               <NavItem href="/explorer" icon={<FileSearch size={20} />} label="SEC Explorer" />
               <NavItem href="/playground" icon={<Terminal size={20} />} label="API Playground" />
-              <NavItem href="/benchmarks" icon={<BarChart3 size={20} />} label="Benchmarks" />
             </nav>
           </div>
 

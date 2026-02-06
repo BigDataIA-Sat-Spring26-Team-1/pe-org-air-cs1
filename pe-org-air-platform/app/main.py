@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.services.snowflake import db
 from app.logging_conf import setup_logging, get_logger
-from app.routers import companies, assessments, health, industries, config, signals, sec, evidence
+from app.routers import companies, assessments, health, industries, config, signals, sec, evidence, metrics
 
 # Setup logging
 setup_logging()
@@ -133,6 +133,7 @@ app.include_router(sec.router, prefix="/api/v1/documents", tags=["Documents"])
 app.include_router(signals.router, prefix="/api/v1/signals", tags=["External Signals"])
 app.include_router(evidence.router, prefix="/api/v1/evidence", tags=["Evidence"])
 app.include_router(assessments.router, prefix="/api/v1", tags=["Assessments"])
+app.include_router(metrics.router, prefix="/api/v1/metrics", tags=["Metrics"])
 
 @app.get("/")
 async def root():
