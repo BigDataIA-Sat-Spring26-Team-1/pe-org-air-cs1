@@ -15,7 +15,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Silence Snowflake connector noise
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 
 class SnowflakeService:
@@ -33,7 +32,6 @@ class SnowflakeService:
                 return None
             return val
         if isinstance(val, (dict, list)):
-            # Deep clean JSON structures
             return json.loads(json.dumps(val, default=lambda x: None).replace(': NaN', ': null').replace(': nan', ': null'))
         return val
 
@@ -54,15 +52,14 @@ class SnowflakeService:
     def get_connection(self):
         with self._lock:
             if self._conn is None or self._is_connection_closed():
-                # Configuration to support Docker environments where OCSP validation may fail
                 snowflake.connector.paramstyle = 'pyformat'
                 
                 self._conn = snowflake.connector.connect(
                     **self.conn_params,
                     autocommit=True,
-                    insecure_mode=True,  # Bypass OCSP validation for compatibility
+                    insecure_mode=True, 
                     session_parameters={
-                        'PYTHON_CONNECTOR_QUERY_RESULT_FORMAT': 'JSON',  # Prefer JSON to minimize S3 dependencies
+                        'PYTHON_CONNECTOR_QUERY_RESULT_FORMAT': 'JSON', 
                         'USE_CACHED_RESULT': False
                     }
                 )
@@ -89,7 +86,6 @@ class SnowflakeService:
         with conn.cursor(DictCursor) as cursor:
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            # Normalize keys to lowercase for Pydantic compatibility
             return [{k.lower(): v for k, v in dict(row).items()} for row in rows]
     
     def _execute_update(self, query: str, params: tuple = None) -> None:
@@ -123,7 +119,7 @@ class SnowflakeService:
             return
         conn = self.get_connection()
         
-        # Primary method: write_pandas (fastest)
+        # Use write_pandas for bulk loading
         try:
             df_copy = df.copy()
             df_copy.columns = [c.upper() for c in df_copy.columns]
@@ -141,14 +137,13 @@ class SnowflakeService:
         except Exception as e:
             logger.warning(f"write_pandas failed for {table_name}, using SQL fallback: {e}")
             
-        # Fallback: Direct SQL insert
+        # Fallback to SQL INSERT
         try:
             columns = df.columns.tolist()
             placeholders = ', '.join(['%s'] * len(columns))
             col_names = ', '.join(columns)
             insert_sql = f"INSERT INTO {table_name} ({col_names}) VALUES ({placeholders})"
             
-            # Convert DataFrame to list of tuples
             values = [tuple(row) for row in df.values]
             
             with conn.cursor() as cursor:
@@ -434,6 +429,85 @@ class SnowflakeService:
             query += " AND category = %s"
             params.append(category)
         query += " ORDER BY evidence_date DESC LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+        return await self.fetch_all(query, tuple(params))
+
+    # SEC Documents
+    async def upsert_sec_company(self, company_name: str, ticker: str) -> None:
+        name_norm = " ".join((company_name or "").strip().casefold().split())
+        query = """
+            MERGE INTO sec_companies AS target
+            USING (SELECT %s AS company_name_norm) AS source
+            ON target.company_name_norm = source.company_name_norm
+            WHEN MATCHED THEN UPDATE SET
+                company_name = %s,
+                ticker = %s,
+                updated_at = CURRENT_TIMESTAMP()
+            WHEN NOT MATCHED THEN INSERT (company_name_norm, company_name, ticker, created_at, updated_at)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP())
+        """
+        params = (name_norm, company_name, ticker, name_norm, company_name, ticker)
+        await self.execute(query, params)
+
+    async def fetch_sec_company_by_norm_name(self, company_name: str) -> Optional[Dict[str, Any]]:
+        name_norm = " ".join((company_name or "").strip().casefold().split())
+        query = "SELECT * FROM sec_companies WHERE company_name_norm = %s LIMIT 1"
+        return await self.fetch_one(query, (name_norm,))
+
+    async def fetch_sec_documents(
+        self, 
+        company_filter: Optional[str] = None, 
+        filing_type: Optional[str] = None, 
+        limit: int = 50, 
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        where = []
+        params: List[Any] = []
+
+        if company_filter:
+            where.append("(company_name ILIKE %s OR cik ILIKE %s OR document_id ILIKE %s)")
+            like = f"%{company_filter}%"
+            params.extend([like, like, like])
+        
+        if filing_type:
+            where.append("filing_type = %s")
+            params.append(filing_type)
+
+        where_clause = ("WHERE " + " AND ".join(where)) if where else ""
+        query = f"""
+            SELECT * FROM documents
+            {where_clause}
+            ORDER BY document_id DESC
+            LIMIT %s OFFSET %s
+        """
+        params.extend([limit, offset])
+        return await self.fetch_all(query, tuple(params))
+
+    async def fetch_sec_document(self, document_id: str) -> Optional[Dict[str, Any]]:
+        query = "SELECT * FROM documents WHERE document_id = %s LIMIT 1"
+        return await self.fetch_one(query, (document_id,))
+
+    async def fetch_sec_document_chunks(
+        self, 
+        document_id: str, 
+        section: Optional[str] = None, 
+        limit: int = 200, 
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        where = ["document_id = %s"]
+        params: List[Any] = [document_id]
+
+        if section:
+            where.append("section_name = %s")
+            params.append(section)
+
+        where_clause = " AND ".join(where)
+        query = f"""
+            SELECT * FROM document_chunks
+            WHERE {where_clause}
+            ORDER BY chunk_index ASC
+            LIMIT %s OFFSET %s
+        """
         params.extend([limit, offset])
         return await self.fetch_all(query, tuple(params))
 
