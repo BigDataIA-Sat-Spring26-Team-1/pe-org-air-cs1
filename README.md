@@ -26,8 +26,9 @@ The **PE Org-AI-R Platform** is a sophisticated data orchestration and analytics
 
 ## 📚 Documentation & Resources
 *   **Codelabs Guide**: [Detailed Step-by-Step Walkthrough](https://codelabs-preview.appspot.com/?file_id=1z3QNIXveTzj0-KyBfuS46IGHTSKYBC2cAkpQrPN1ALQ#0)
+*   **Codelab Documentation**: [Project Technical Manual](https://docs.google.com/document/d/1z3QNIXveTzj0-KyBfuS46IGHTSKYBC2cAkpQrPN1ALQ/edit?tab=t.0)
 *   **Architecture Diagram**:
-    ![Architecture Diagram](./Architecture_Diagram.jpeg)
+    ![Architecture Diagram](./pe-org-air-platform/Architecture_Diagram.jpeg)
 *   **Video Demonstration**: [Full Platform Walkthrough](https://drive.google.com/file/d/1KJ-JuXoVbiEB0IHeeLY3EPvKNikRtyoZ/view?usp=sharing)
 
 ---
@@ -113,7 +114,7 @@ The **PE Org-AI-R Platform** is a sophisticated data orchestration and analytics
 
 ---
 
-## �🚀 Deployment & Installation
+## 🚀 Deployment & Installation
 
 ### 1. Requirements & Prerequisites
 *   **Docker Desktop** (with Compose V2)
