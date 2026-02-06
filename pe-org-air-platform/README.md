@@ -24,7 +24,98 @@ The **PE Org-AI-R Platform** is a sophisticated data orchestration and analytics
 
 ---
 
-## 🚀 Deployment & Installation
+## 📚 Documentation & Resources
+*   **Codelabs Guide**: [Detailed Step-by-Step Walkthrough](https://codelabs-preview.appspot.com/?file_id=1z3QNIXveTzj0-KyBfuS46IGHTSKYBC2cAkpQrPN1ALQ#0)
+*   **Architecture Diagram**:
+    ![Architecture Diagram](./Architecture_Diagram.jpeg)
+*   **Video Demonstration**: *[Placeholder: Video Demo URL]*
+*   **Architecture Diagram**:
+    ![Architecture Diagram](./Architecture_Diagram.jpeg)
+
+---
+
+## 📂 Project Structure
+```text
+.
+  |docker
+  |--|Dockerfile
+  |--|docker-compose.yml
+  |app
+  |--|routers
+  |--|--|metrics.py
+  |--|--|signals.py
+  |--|--|routers_utils.py
+  |--|--|config.py
+  |--|--|health.py
+  |--|--|__init__.py
+  |--|--|sec.py
+  |--|--|companies.py
+  |--|--|testing.py
+  |--|--|assessments.py
+  |--|--|evidence.py
+  |--|--|industries.py
+  |--|database
+  |--|--|seed.sql
+  |--|--|schema.sql
+  |--|--|schema_sec.sql
+  |--|--|__init__.py
+  |--|--|schema_signal.sql
+  |--|config.py
+  |--|__init__.py
+  |--|pipelines
+  |--|--|sec
+  |--|--|external_signals
+  |--|logging_conf.py
+  |--|models
+  |--|--|assessment.py
+  |--|--|signals.py
+  |--|--|enums.py
+  |--|--|company.py
+  |--|--|registry.py
+  |--|--|__init__.py
+  |--|--|common.py
+  |--|--|sec.py
+  |--|--|industry.py
+  |--|--|dimension.py
+  |--|main.py
+  |--|services
+  |--|--|__init__.py
+  |--|--|backfill.py
+  |--|--|snowflake.py
+  |--|--|s3_storage.py
+  |--|--|redis_cache.py
+  |pytest.ini
+  |frontend
+  |--|postcss.config.mjs
+  |--|Dockerfile
+  |--|README.md
+  |--|public
+  |--|package.json
+  |--|tsconfig.json
+  |--|next.config.ts
+  |--|src
+  |--|--|app
+  |requirements.txt
+  |pyproject.toml
+  |tests
+  |--|test_concurrency.py
+  |--|conftest.py
+  |--|test_performance_cache.py
+  |--|test_flows.py
+  |--|test_sec_downloader.py
+  |--|test_models.py
+  |--|test_api.py
+  |README.md
+  |logs
+  |--|app.log
+  |data
+  |--|sec_downloads
+  |--|README.md
+```
+
+---
+
+## �🚀 Deployment & Installation
 
 ### 1. Requirements & Prerequisites
 *   **Docker Desktop** (with Compose V2)

@@ -16,12 +16,12 @@ class BackfillService:
     def __init__(self):
         # Only store static metadata here, not IDs
         self._target_companies = {
-            # "CAT": {"name": "Caterpillar Inc.", "sector": "Manufacturing"},
-            # "DE": {"name": "Deere & Company", "sector": "Manufacturing"},
-            # "UNH": {"name": "UnitedHealth Group", "sector": "Healthcare"},
-            # "HCA": {"name": "HCA Healthcare", "sector": "Healthcare"},
-            # "ADP": {"name": "Automatic Data Processing", "sector": "Services"},
-            # "PAYX": {"name": "Paychex Inc.", "sector": "Services"},
+            "CAT": {"name": "Caterpillar Inc.", "sector": "Manufacturing"},
+            "DE": {"name": "Deere & Company", "sector": "Manufacturing"},
+            "UNH": {"name": "UnitedHealth Group", "sector": "Healthcare"},
+            "HCA": {"name": "HCA Healthcare", "sector": "Healthcare"},
+            "ADP": {"name": "Automatic Data Processing", "sector": "Services"},
+            "PAYX": {"name": "Paychex Inc.", "sector": "Services"},
             "WMT": {"name": "Walmart Inc.", "sector": "Retail"},
             "TGT": {"name": "Target Corporation", "sector": "Retail"},
             "JPM": {"name": "JPMorgan Chase", "sector": "Financial"},
@@ -48,7 +48,7 @@ class BackfillService:
     def is_running(self) -> bool:
         return self._stats["status"] == "running"
 
-    async def run_backfill(self):
+    async def run_backfill(self, custom_targets: Dict[str, Dict[str, str]] = None):
         self._stats["status"] = "running"
         self._stats["companies"] = 0
         self._stats["signals"] = 0
@@ -66,7 +66,8 @@ class BackfillService:
         for ind in all_industries:
             industry_map[ind['name']] = ind['id']
         
-        tickers = list(self._target_companies.keys())
+        targets_dict = custom_targets if custom_targets else self._target_companies
+        tickers = list(targets_dict.keys())
         
         # Concurrency control: Max 2 companies at a time using Semaphore
         # This replaces the batch approach to avoid blocking on slow jobs
@@ -74,7 +75,7 @@ class BackfillService:
 
         async def _process_company_full(ticker: str):
             """Worker to run SEC + Signals for one company in parallel."""
-            info = self._target_companies[ticker]
+            info = targets_dict[ticker]
             
             # 1. Resolve Industry ID & Ensure Company Record
             sector = info['sector']
