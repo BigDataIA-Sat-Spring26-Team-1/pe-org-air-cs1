@@ -60,7 +60,7 @@ async def health_check():
     dependencies = {
         "snowflake": await check_snowflake(),
         "redis": await check_redis(),
-        # "s3": await check_s3(), # S3 check not happening because it is not yet setup
+        "s3": await check_s3()
     }
     
     # Check if all critical dependencies are healthy

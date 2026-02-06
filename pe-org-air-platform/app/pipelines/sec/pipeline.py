@@ -9,9 +9,9 @@ import structlog
 from app.pipelines.sec.downloader import SecDownloader
 from app.pipelines.sec.parser import SecParser
 from app.pipelines.sec.chunker import SemanticChunker
-from app.services.registry import DocumentRegistry
+from app.models.registry import DocumentRegistry
 from app.services.s3_storage import aws_service
-from app.database.snowflake import db
+from app.services.snowflake import db
 
 logger = structlog.get_logger()
 
@@ -107,7 +107,7 @@ class SecPipeline:
 
                 doc_id = f"{meta.cik}_{meta.accession_number}"
 
-                db.execute_query(
+                await db.execute(
                     """
                     MERGE INTO documents AS target
                     USING (SELECT %s AS id) AS source
@@ -134,7 +134,7 @@ class SecPipeline:
                     ))
 
                 if chunk_params:
-                    db.execute_batch_insert(
+                    await db.execute_many(
                         """
                         INSERT INTO document_chunks (
                             chunk_id, document_id, chunk_index, 

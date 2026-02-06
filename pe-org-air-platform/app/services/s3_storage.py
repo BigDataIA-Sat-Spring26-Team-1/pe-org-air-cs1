@@ -8,11 +8,11 @@ logger = structlog.get_logger()
 
 class AWSService:
     def __init__(self):
-        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+        if settings.AWS_ACCESS_KEY_ID.get_secret_value() and settings.AWS_SECRET_ACCESS_KEY.get_secret_value():
             self.s3_client = boto3.client(
                 "s3",
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID.get_secret_value(),
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY.get_secret_value(),
                 region_name=settings.AWS_REGION
             )
         else:

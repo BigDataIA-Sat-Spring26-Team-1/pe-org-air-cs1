@@ -19,6 +19,9 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - S3_BUCKET=${S3_BUCKET}
+      - PATENTSVIEW_API_KEY=${PATENTSVIEW_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+
     depends_on:
       - redis
     restart: unless-stopped
