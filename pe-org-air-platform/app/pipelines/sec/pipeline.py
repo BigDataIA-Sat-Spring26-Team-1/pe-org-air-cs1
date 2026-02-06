@@ -95,6 +95,17 @@ class SecPipeline:
             all_chunks = []
             chunk_index_counter = 0
 
+            for section_name, text in sections.items():
+                chunks = self.chunker.chunk(text)
+                for chunk_text in chunks:
+                    all_chunks.append({
+                        "section": section_name,
+                        "text": chunk_text,
+                        "index": chunk_index_counter,
+                        "tokens": len(chunk_text.split())
+                    })
+                    chunk_index_counter += 1
+
             # Prep for DB
             doc_id = f"{meta.cik}_{meta.accession_number}"
             

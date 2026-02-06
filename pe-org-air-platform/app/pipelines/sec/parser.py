@@ -69,7 +69,6 @@ class SecParser:
 
         for section_name, specific_patterns in patterns.items():
             matches = []
-
             for pat in specific_patterns:
                 for m in re.finditer(pat, text, re.IGNORECASE):
                     matches.append(m)
@@ -77,29 +76,25 @@ class SecParser:
             if not matches:
                 continue
 
-            valid_match = None
-            for m in matches:
-                if m.start() < 3000 and len(matches) > 1:
-                    continue
-                valid_match = m
-                break
-
-            if not valid_match:
-                continue
-
+            # Intelligent TOC skipping: take the last match if multiple exist,
+            # as TOC matches appear first and shouldn't be hundreds of chars deep.
+            valid_match = matches[-1]
             start_idx = valid_match.start()
-            end_idx = len(text)
 
+            end_idx = len(text)
+            # Find the next item that marks the end of this section
             for end_pat in all_start_patterns:
-                next_match = re.search(end_pat, text[start_idx + 50:])
+                # Don't let a section end on its own marker or a marker too close
+                next_match = re.search(end_pat, text[start_idx + 100:], re.IGNORECASE)
                 if next_match:
-                    absolute_end = start_idx + 50 + next_match.start()
+                    absolute_end = start_idx + 100 + next_match.start()
                     if absolute_end < end_idx:
                         end_idx = absolute_end
 
-            content = text[start_idx:end_idx]
+            content = text[start_idx:end_idx].strip()
 
-            if len(content) > 500:
+            # Keep sections > 300 chars (short disclosure is still disclosure)
+            if len(content) > 300:
                 results[section_name] = content
 
         return results
