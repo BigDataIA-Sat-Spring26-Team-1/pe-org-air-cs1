@@ -27,6 +27,8 @@ class SecPipeline:
         self.parser = SecParser()
         self.chunker = SemanticChunker()
         self.registry = DocumentRegistry()
+        # Increase to 8 parallel workers for parsing and uploading
+        self.process_semaphore = asyncio.Semaphore(8)
 
     async def run_old(self, tickers: List[str], limit: int = 2):
         logger.info("pipeline_start", tickers=tickers)
@@ -69,13 +71,11 @@ class SecPipeline:
                 return results_chunk
 
             s3_raw_key = f"sec/{meta.cik}/{meta.filing_type}/{meta.accession_number}/{target_file.name}"
-            # s3 calls are blocking (boto3)
             if aws_service.file_exists(s3_raw_key):
                 logger.debug("raw_file_exists_skipping_upload", key=s3_raw_key)
             else:
                 aws_service.upload_file(str(target_file), s3_raw_key)
 
-            # CPU bound parsing
             sections = self.parser.parse(target_file, form_type=meta.filing_type)
             if not sections:
                 logger.warning("no_sections_extracted", file=meta.accession_number)
@@ -95,19 +95,7 @@ class SecPipeline:
             all_chunks = []
             chunk_index_counter = 0
 
-            # CPU bound chunking
-            for section_name, text in sections.items():
-                chunks = self.chunker.split_text(text)
-                for chunk_text in chunks:
-                    all_chunks.append({
-                        "index": chunk_index_counter,
-                        "section": section_name,
-                        "text": chunk_text,
-                        "tokens": len(chunk_text.split())
-                    })
-                    chunk_index_counter += 1
-
-            # Prepare data for async DB insertion
+            # Prep for DB
             doc_id = f"{meta.cik}_{meta.accession_number}"
             
             results_chunk["processed"] = 1
@@ -128,7 +116,7 @@ class SecPipeline:
     async def run(self, tickers: List[str], limit: int = 2):
         logger.info("pipeline_start", tickers=tickers)
 
-        # Download filings
+        # 1. Download filings (already concurrent)
         metadatas = await self.downloader.download_filings(
             tickers=tickers,
             filing_types=["10-K", "10-Q", "8-K", "DEF 14A"],
@@ -143,22 +131,37 @@ class SecPipeline:
             "errors": 0
         }
 
+        if not metadatas:
+            return results
+
         loop = asyncio.get_event_loop()
-        
-        # Process filings via thread pool
-        for meta in metadatas:
-            # Run sync processing in thread
-            res_chunk = await loop.run_in_executor(None, self._process_filing_sync, meta)
-            
-            results["processed"] += res_chunk["processed"]
-            results["skipped"] += res_chunk["skipped"]
-            results["errors"] += res_chunk["errors"]
-            
-            doc_data = res_chunk.get("doc_data")
-            
-            if doc_data:
-                # Async DB writes
-                await self._save_to_db(doc_data)
+
+        async def process_and_save(meta):
+            """Internal async worker to handle individual filing end-to-end."""
+            async with self.process_semaphore:
+                res_chunk = await loop.run_in_executor(None, self._process_filing_sync, meta)
+                
+                doc_data = res_chunk.get("doc_data")
+                if doc_data:
+                    # Parallel DB saving
+                    await self._save_to_db(doc_data)
+                
+                return res_chunk
+
+        # 2. Fire off all processing tasks in parallel
+        tasks = [process_and_save(meta) for meta in metadatas]
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 3. Aggregate results
+        for res in batch_results:
+            if isinstance(res, Exception):
+                logger.error("task_execution_failed", error=str(res))
+                results["errors"] += 1
+                continue
+                
+            results["processed"] += res.get("processed", 0)
+            results["skipped"] += res.get("skipped", 0)
+            results["errors"] += res.get("errors", 0)
 
         logger.info("pipeline_complete", results=results)
         return results

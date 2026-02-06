@@ -15,10 +15,9 @@ class DocumentRegistry:
     def _refresh(self):
         """Reload all hashes from the documents table."""
         try:
-            # Assuming 'documents' table exists and has 'content_hash' column
             query = "SELECT content_hash FROM documents WHERE content_hash IS NOT NULL"
             rows = db.execute_query(query)
-            self.known_hashes = {row[0] for row in rows}
+            self.known_hashes = {row['content_hash'] for row in rows}
             logger.info("registry_refreshed", count=len(self.known_hashes))
         except Exception as e:
             logger.warning("registry_refresh_failed", error=str(e), msg="Will start with empty registry")

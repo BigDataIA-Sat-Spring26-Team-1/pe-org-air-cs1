@@ -66,8 +66,8 @@ async def lifespan(app: FastAPI):
 
         # 2. Run Schema Migrations
         await execute_sql_file("app/database/schema.sql", "schema initialization")
-        # await execute_sql_file("app/database/schema_sec.sql", "SEC schema initialization")
-        await execute_sql_file("app/database/schema_signals.sql", "signals schema initialization")
+        await execute_sql_file("app/database/schema_sec.sql", "SEC schema initialization")
+        await execute_sql_file("app/database/schema_signal.sql", "signals schema initialization")
 
         # 3. Check for Seed Data
         try:

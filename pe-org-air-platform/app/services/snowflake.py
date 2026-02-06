@@ -88,6 +88,10 @@ class SnowflakeService:
             rows = cursor.fetchall()
             return [{k.lower(): v for k, v in dict(row).items()} for row in rows]
     
+    def execute_query(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
+        """Synchronous query execution."""
+        return self._execute_query(query, params)
+    
     def _execute_update(self, query: str, params: tuple = None) -> None:
         conn = self.get_connection()
         logger.debug(f"Executing SQL: {query}")

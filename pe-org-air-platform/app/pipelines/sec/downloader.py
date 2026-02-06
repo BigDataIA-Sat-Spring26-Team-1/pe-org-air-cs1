@@ -20,8 +20,7 @@ class SecDownloader:
         self.download_dir = Path(download_dir)
         self.downloader = Downloader(company, email, download_folder=str(self.download_dir))
         self.max_workers = max_workers
-        # SEC limits to 10 requests/sec. We'll be conservative with 5 concurrent tasks
-        # The downloader library handles some rate limiting, but for safety in parallel:
+        # Increase to 5 concurrent workers for faster downloads
         self._semaphore = asyncio.Semaphore(5) 
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
@@ -30,7 +29,6 @@ class SecDownloader:
         Blocking download call wrapped with retry logic.
         """
         try:
-            # Note: after_date format YYYY-MM-DD if supported by lib or filtering happens after
             count = self.downloader.get(filing_type, ticker, limit=limit, after=after_date)
             return count
         except Exception as e:
@@ -57,12 +55,13 @@ class SecDownloader:
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Scan directory to gather metadata of downloaded files
-        # valid_results = [r for r in results if not isinstance(r, Exception)]
         return self._scan_downloaded_files(tickers)
 
     async def _download_worker(self, loop, pool, ticker, f_type, limit):
         async with self._semaphore:
             logger.debug("downloading", ticker=ticker, type=f_type)
+            # Small delay between workers to avoid burst
+            await asyncio.sleep(0.2) 
             await loop.run_in_executor(pool, self._download_safe, ticker, f_type, limit, None)
 
     def _scan_downloaded_files(self, tickers: List[str]) -> List[FilingMetadata]:
@@ -89,12 +88,6 @@ class SecDownloader:
                     if not accession_dir.is_dir(): continue
                     accession_number = accession_dir.name
                     
-                    # Prefer HTML, then Text
-                    # The downloader usually saves as full-submission.txt or .html
-                    # We need to identify the primary document.
-                    
-                    file_path = None
-                    # Simple heuristic: look for full-submission.txt or html or .pdf
                     candidates = list(accession_dir.glob("*.*"))
                     
                     # Prioritize HTML for parsing, but keep track of what we have
@@ -103,21 +96,14 @@ class SecDownloader:
                         primary_file = next((f for f in candidates if f.suffix == '.txt'), None)
                     
                     if primary_file:
-                        # Generate a pseudo content hash placeholder (real calculation happens later)
-                        # or compute it here if cheap.
-                        
                         meta = FilingMetadata(
-                            cik=ticker, # Using ticker as CIK/ID for now as library structure is by ticker
-                            company_name=ticker, # Placeholder
+                            cik=ticker,
+                            company_name=ticker, 
                             filing_type=filing_type,
                             accession_number=accession_number,
-                            s3_path="", # Will be updated after S3 upload
-                            content_hash="PENDING_" + accession_number # Placeholder
+                            s3_path="", 
+                            content_hash="PENDING_" + accession_number 
                         )
-                        # We attach the local path temporarily to the object or extra dict for the next step
-                        # But Pydantic model doesn't have it. We should probably add `local_path` 
-                        # to the model or return a tuple. 
-                        # For now, let's assume the pipeline orchestrator knows the path structure.
                         discovered.append(meta)
                         
         return discovered

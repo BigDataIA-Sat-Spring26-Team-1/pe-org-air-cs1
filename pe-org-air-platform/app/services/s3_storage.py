@@ -9,11 +9,14 @@ logger = structlog.get_logger()
 class AWSService:
     def __init__(self):
         if settings.AWS_ACCESS_KEY_ID.get_secret_value() and settings.AWS_SECRET_ACCESS_KEY.get_secret_value():
+            from botocore.config import Config
+            config = Config(max_pool_connections=50)
             self.s3_client = boto3.client(
                 "s3",
                 aws_access_key_id=settings.AWS_ACCESS_KEY_ID.get_secret_value(),
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY.get_secret_value(),
-                region_name=settings.AWS_REGION
+                region_name=settings.AWS_REGION,
+                config=config
             )
         else:
             logger.warning("AWS credentials missing")
