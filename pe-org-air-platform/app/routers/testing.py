@@ -3,22 +3,22 @@ import subprocess
 import os
 import json
 from datetime import datetime
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 router = APIRouter()
 
-@router.post("/run-tests")
-async def run_system_tests():
-    """
-    Triggers the internal test suite and returns the captured output.
-    """
+# Thread pool for running blocking subprocess calls
+executor = ThreadPoolExecutor(max_workers=1)
+
+def run_pytest():
+    """Run pytest in a blocking subprocess (runs in thread pool)."""
     try:
-        # Run pytest on the tests directory
-        # We use -v for verbose output so we can see each test case
         process = subprocess.run(
             ["pytest", "tests/", "-v", "--tb=short"],
             capture_output=True,
             text=True,
-            timeout=120 # 2 minute timeout
+            timeout=120  # 2 minute timeout
         )
         
         # Analyze the output to provide a summary
@@ -29,8 +29,8 @@ async def run_system_tests():
         lines = output.split('\n')
         summary = "No summary found"
         for line in reversed(lines):
-            if "passed" in line and "failed" in line:
-                summary = line
+            if "passed" in line or "failed" in line:
+                summary = line.strip()
                 break
         
         return {
@@ -46,5 +46,23 @@ async def run_system_tests():
             "message": "Tests timed out after 120 seconds",
             "raw_output": "Timeout exceeded while running tests."
         }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e),
+            "raw_output": f"Error running tests: {str(e)}"
+        }
+
+@router.post("/run-tests")
+async def run_system_tests():
+    """
+    Triggers the internal test suite and returns the captured output.
+    Runs pytest in a thread pool to avoid blocking the event loop.
+    """
+    try:
+        # Run pytest in thread pool to prevent blocking
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(executor, run_pytest)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

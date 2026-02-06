@@ -58,9 +58,41 @@ PATENTSVIEW_API_KEY="your-patentsview-key"
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml up --build
 ```
+```
 *   **Frontend Hub**: `http://localhost:3000`
 *   **API Backbone**: `http://localhost:8000`
 *   **Interactive Tutorial**: `http://localhost:3000/tutorial`
+
+### 4. Stopping and Cleanup
+
+**Stop containers and remove images (Recommended):**
+```bash
+# Stops containers and removes images to free disk space
+docker compose --env-file .env -f docker/docker-compose.yml down --rmi all
+```
+> **Note:** This preserves your data in `./data/` and `./logs/` directories.
+
+**Complete cleanup (includes volumes):**
+```bash
+# ⚠️ WARNING: This removes Redis data and all volumes
+docker compose --env-file .env -f docker/docker-compose.yml down --rmi all --volumes
+```
+
+**Periodic maintenance (recommended weekly):**
+```bash
+# Clean up unused Docker resources
+docker system prune -a -f
+docker builder prune -f
+```
+
+**Check disk usage:**
+```bash
+# View Docker disk usage
+docker system df
+
+# Check data folder size
+du -sh data/ logs/
+```
 
 ---
 
