@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
 from typing import Dict, Optional, List
-import bs4
 from bs4 import BeautifulSoup
 import pdfplumber
 import structlog
@@ -9,136 +8,98 @@ import structlog
 logger = structlog.get_logger()
 
 class SecParser:
-    """
-    Parses SEC filings (HTML/PDF/TXT) and attempts to extract key sections:
-    - Item 1: Business
-    - Item 1A: Risk Factors
-    - Item 7: MD&A
-    """
-    
-    SECTION_PATTERNS = {
-        "Item 1": [r"Item\s+1\.\s+Business", r"ITEM\s+1\.\s+BUSINESS"],
-        "Item 1A": [r"Item\s+1A\.\s+Risk\s+Factors", r"ITEM\s+1A\.\s+RISK\s+FACTORS"],
-        "Item 7": [r"Item\s+7\.\s+Management", r"ITEM\s+7\.\s+MANAGEMENT"],
-        "End": [r"Item\s+8\.", r"Item\s+1B\.", r"Item\s+2\."]
-    }
+    def __init__(self):
+        self.PATTERNS_BY_FORM = {
+            "10-K": {
+                "Business": [r"Item\s+1\.\s+Business", r"ITEM\s+1\.\s+BUSINESS"],
+                "Risk Factors": [r"Item\s+1A\.\s+Risk\s+Factors"],
+                "MD&A": [r"Item\s+7\.\s+Management"]
+            },
+            "10-Q": {
+                "MD&A": [r"Item\s+2\.\s+Management", r"ITEM\s+2\.\s+MANAGEMENT"],
+                "Risk Factors": [r"Item\s+1A\.\s+Risk\s+Factors"]
+            },
+            "8-K": {
+                "Events": [r"Item\s+8\.01", r"Item\s+5\.02", r"Item\s+1\.01"]
+            },
+            "DEF 14A": {
+                "CD&A": [r"COMPENSATION\s+DISCUSSION\s+(?:AND|&)\s+ANALYSIS"],
+                "Summary Tables": [r"SUMMARY\s+COMPENSATION\s+TABLE", r"EXECUTIVE\s+COMPENSATION\s+TABLES"],
+                "Incentive Plan": [r"ANNUAL\s+INCENTIVE\s+PLAN", r"LONG-TERM\s+INCENTIVE"]
+            }
+        }
 
-    def parse(self, file_path: Path) -> Dict[str, str]:
-        """
-        Main entry point. Returns dictionary of Section Name -> Text Content.
-        """
+    def parse(self, file_path: Path, form_type: str) -> Dict[str, str]:
+        text = ""
         suffix = file_path.suffix.lower()
-        
-        if suffix == '.html' or suffix == '.htm':
-            return self._parse_html(file_path)
-        elif suffix == '.txt':
-            # Check if it's actually HTML inside TXT (common in Edgar)
-            with open(file_path, 'r', errors='ignore') as f:
-                head = f.read(1000)
-            if "<html" in head.lower() or "<xml" in head.lower():
-                return self._parse_html(file_path)
-            else:
-                return self._parse_text_fallback(file_path)
-        elif suffix == '.pdf':
-            return self._parse_pdf(file_path)
-        else:
-            logger.warning("unsupported_file_type", path=str(file_path))
-            return {}
 
-    def _parse_html(self, path: Path) -> Dict[str, str]:
-        """
-        Parses HTML using BeautifulSoup.
-        Heuristic: Iterate through tags, switch active section when header found.
-        """
-        sections = {"Item 1": "", "Item 1A": "", "Item 7": ""}
-        current_section = None
-        
         try:
-            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                soup = BeautifulSoup(f, 'lxml')
-                
-            # Remove script/style
-            for s in soup(["script", "style"]):
-                s.extract()
-                
-            # Linear scan of text elements
-            # This is a simplified approach; robust regex on full text is often safer 
-            # for "dirty" HTML than DOM traversal.
-            text = soup.get_text(separator="\n")
-            return self._extract_sections_regex(text)
-            
+            if suffix in ['.html', '.htm', '.txt']:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    raw_content = f.read()
+
+                    if "<html" in raw_content.lower() or "<xml" in raw_content.lower():
+                        soup = BeautifulSoup(raw_content, 'lxml')
+                        for script in soup(["script", "style"]):
+                            script.extract()
+                        text = soup.get_text(separator="\n\n")
+                    else:
+                        text = raw_content
+
+            elif suffix == '.pdf':
+                with pdfplumber.open(file_path) as pdf:
+                    text = "\n".join([p.extract_text() or "" for p in pdf.pages])
+
         except Exception as e:
-            logger.error("html_parse_error", path=str(path), error=str(e))
+            logger.error("file_read_error", path=str(file_path), error=str(e))
             return {}
 
-    def _parse_pdf(self, path: Path) -> Dict[str, str]:
-        try:
-            full_text = []
-            with pdfplumber.open(path) as pdf:
-                for page in pdf.pages:
-                    txt = page.extract_text()
-                    if txt:
-                        full_text.append(txt)
-            
-            combined_text = "\n".join(full_text)
-            return self._extract_sections_regex(combined_text)
-        except Exception as e:
-            logger.error("pdf_parse_error", path=str(path), error=str(e))
-            return {}
+        clean_text = re.sub(r'\s+', ' ', text)
+        return self._extract_sections(clean_text, form_type)
 
-    def _parse_text_fallback(self, path: Path) -> Dict[str, str]:
-        # Implementation for plain text
-        try:
-             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                text = f.read()
-                return self._extract_sections_regex(text)
-        except Exception:
-            return {}
-
-    def _extract_sections_regex(self, text: str) -> Dict[str, str]:
-        """
-        Uses distinct regex to slice the document text.
-        NOTE: This is the 'hard' part of SEC parsing.
-        """
-        # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Simple slicing strategy
-        # Find start indices
-        idxs = {}
-        for section, patterns in self.SECTION_PATTERNS.items():
-            for pat in patterns:
-                match = re.search(pat, text)
-                if match:
-                    idxs[section] = match.start()
-                    break
-        
+    def _extract_sections(self, text: str, form_type: str) -> Dict[str, str]:
+        patterns = self.PATTERNS_BY_FORM.get(form_type, {})
         results = {}
-        
-        # Helper to slice
-        def extract_slice(start_key, end_keys_candidates):
-            if start_key not in idxs: 
-                return ""
-            start_idx = idxs[start_key]
-            
-            # Find the nearest end key that is AFTER start_idx
+
+        all_start_patterns = []
+        for pat_list in patterns.values():
+            all_start_patterns.extend(pat_list)
+
+        all_start_patterns.extend([r"Item\s+15\.", r"SIGNATURES", r"PART\s+II", r"Item\s+6\."])
+
+        for section_name, specific_patterns in patterns.items():
+            matches = []
+
+            for pat in specific_patterns:
+                for m in re.finditer(pat, text, re.IGNORECASE):
+                    matches.append(m)
+
+            if not matches:
+                continue
+
+            valid_match = None
+            for m in matches:
+                if m.start() < 3000 and len(matches) > 1:
+                    continue
+                valid_match = m
+                break
+
+            if not valid_match:
+                continue
+
+            start_idx = valid_match.start()
             end_idx = len(text)
-            for end_key in end_keys_candidates:
-                if end_key in idxs and idxs[end_key] > start_idx:
-                    end_idx = min(end_idx, idxs[end_key])
-            
-            # Sanity limit: max 500k chars to avoid capturing whole doc if end missing
-            return text[start_idx:min(end_idx, start_idx + 1000000)]
 
-        # Item 1 -> Ends at 1A or 2
-        results["Item 1"] = extract_slice("Item 1", ["Item 1A", "End"])
-        
-        # Item 1A -> Ends at 1B or 2
-        results["Item 1A"] = extract_slice("Item 1A", ["End"])
-        
-        # Item 7 -> Ends at 7A or 8
-        results["Item 7"] = extract_slice("Item 7", ["End"]) # Need better end markers for Item 7
-        
-        # Filter out empty results or very short ones (false positives)
-        return {k: v for k, v in results.items() if len(v) > 500}
+            for end_pat in all_start_patterns:
+                next_match = re.search(end_pat, text[start_idx + 50:])
+                if next_match:
+                    absolute_end = start_idx + 50 + next_match.start()
+                    if absolute_end < end_idx:
+                        end_idx = absolute_end
 
+            content = text[start_idx:end_idx]
+
+            if len(content) > 500:
+                results[section_name] = content
+
+        return results
