@@ -1,0 +1,45 @@
+Aakashs-MacBook-Pro:pe-org-air-platform aakashbelide$ docker compose --env-file .env -f docker/docker-compose.yml exec api pytest -v -s
+====================================================================== test session starts =======================================================================
+platform linux -- Python 3.11.14, pytest-8.0.0, pluggy-1.6.0 -- /usr/local/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /app
+plugins: asyncio-0.23.5, anyio-4.12.1
+asyncio: mode=Mode.STRICT
+collected 22 items                                                                                                                                               
+
+tests/test_api.py::test_health_check_live PASSED
+tests/test_api.py::test_root_live PASSED
+tests/test_api.py::test_duplicate_company_name Duplicate check result: 201
+PASSED
+tests/test_concurrency.py::test_simultaneous_reads PASSED
+tests/test_concurrency.py::test_simultaneous_writes 
+Simultaneously created 5 companies.
+PASSED
+tests/test_concurrency.py::test_read_write_collision PASSED
+tests/test_flows.py::TestFullApplicationFlow::test_01_industries_list 
+Industry selected: 550e8400-e29b-41d4-a716-446655440003
+PASSED
+tests/test_flows.py::TestFullApplicationFlow::test_02_company_lifecycle PASSED
+tests/test_flows.py::TestFullApplicationFlow::test_03_assessment_lifecycle PASSED
+tests/test_flows.py::TestFullApplicationFlow::test_04_dimension_scores_lifecycle PASSED
+tests/test_flows.py::TestFullApplicationFlow::test_05_error_handling_and_deletion PASSED
+tests/test_models.py::test_company_validations PASSED
+tests/test_models.py::test_assessment_validations PASSED
+tests/test_models.py::test_dimension_score_logic PASSED
+tests/test_models.py::test_type_casting PASSED
+tests/test_performance_cache.py::test_redis_caching_performance 
+Cache Miss: 0.0065s | Cache Hit: 0.0014s
+PASSED
+tests/test_performance_cache.py::test_cache_invalidation_on_update PASSED
+tests/test_performance_cache.py::test_cache_ttl_logic PASSED
+tests/test_performance_cache.py::test_cache_invalidation_on_creation PASSED
+tests/test_performance_cache.py::test_cache_pagination_isolation PASSED
+tests/test_performance_cache.py::test_assessment_cache_speedup 
+Assessment Speedup: 0.1704s -> 0.0087s
+PASSED
+tests/test_sec_downloader.py::test_sec_downloader_creates_download_dir 2026-02-06 20:56:46 [info     ] starting_batch_download        tickers_count=1
+2026-02-06 20:56:46 [debug    ] downloading                    ticker=AAPL type=10-K
+discovered_count: 1
+PASSED
+
+====================================================================== 22 passed in 18.17s =======================================================================
