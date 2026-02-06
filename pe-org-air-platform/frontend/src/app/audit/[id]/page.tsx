@@ -47,7 +47,6 @@ interface Evidence {
 interface Document {
     document_id: string;
     filing_type: string;
-    filing_date: string;
     company_name: string;
     processing_status: string;
     cik?: string;
@@ -393,7 +392,6 @@ function FilingRow({ filing }: { filing: Document }) {
                 </div>
             </div>
             <div className="flex items-center gap-6">
-                <span className="text-xs text-slate-500 font-mono">{filing.filing_date || "Indexed Item"}</span>
                 <div className="flex gap-2">
                     {filing.cik && (
                         <a

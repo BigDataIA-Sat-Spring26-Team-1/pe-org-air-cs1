@@ -70,6 +70,8 @@ async def collect_documents(req: SecCollectRequest, background_tasks: Background
     }
 
 
+from app.services.redis_cache import cache
+
 @router.get("", 
             response_model=List[SecDocument],
             summary="List SEC documents",
@@ -83,8 +85,22 @@ async def list_documents(
     """
     List documents (filterable).
     """
+    # 1. Try Cache
+    # Key normalization: treat None as "" to be safe, though str(None) is "None"
+    cache_key = f"sec:docs:{company or 'all'}:{filing_type or 'all'}:{limit}:{offset}"
+    
+    cached_result = cache.get_list(cache_key, SecDocument)
+    if cached_result is not None:
+        return cached_result
+        
+    # 2. Fetch from DB
     docs = await db.fetch_sec_documents(company, filing_type, limit, offset)
-    return [SecDocument(**d) for d in docs]
+    results = [SecDocument(**d) for d in docs]
+    
+    # 3. Set Cache (TTL 5 mins = 300s)
+    cache.set_list(cache_key, results, ttl_seconds=300)
+    
+    return results
 
 
 @router.get("/{document_id}", 
@@ -93,10 +109,24 @@ async def list_documents(
             description="Retrieve metadata for a specific SEC document.")
 async def get_document(document_id: str):
     """Get document with metadata."""
-    doc = await db.fetch_sec_document(document_id)
-    if not doc:
+    cache_key = f"sec:doc:{document_id}"
+    
+    # 1. Try Cache
+    cached_doc = cache.get(cache_key, SecDocument)
+    if cached_doc:
+        return cached_doc
+
+    # 2. Fetch from DB
+    doc_data = await db.fetch_sec_document(document_id)
+    if not doc_data:
         raise HTTPException(404, f"Document not found: {document_id}")
-    return SecDocument(**doc)
+    
+    result = SecDocument(**doc_data)
+    
+    # 3. Set Cache (TTL 10 mins = 600s)
+    cache.set(cache_key, result, ttl_seconds=600)
+    
+    return result
 
 
 @router.get("/{document_id}/chunks", 
@@ -110,5 +140,17 @@ async def get_document_chunks(
     offset: int = Query(default=0, ge=0),
 ):
     """Get document chunks."""
+    # Chunk lists can be huge, but caching standard pages helps.
+    cache_key = f"sec:chunks:{document_id}:{section or 'all'}:{limit}:{offset}"
+    
+    cached_chunks = cache.get_list(cache_key, SecDocumentChunk)
+    if cached_chunks:
+        return cached_chunks
+
     chunks = await db.fetch_sec_document_chunks(document_id, section, limit, offset)
-    return [SecDocumentChunk(**c) for c in chunks]
+    results = [SecDocumentChunk(**c) for c in chunks]
+    
+    # Set Cache (TTL 5 mins)
+    cache.set_list(cache_key, results, ttl_seconds=300)
+    
+    return results

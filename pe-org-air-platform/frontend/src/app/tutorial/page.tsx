@@ -14,7 +14,18 @@ import {
     Box,
     Cpu,
     Copy,
-    Check
+    Check,
+    Cloud,
+    Server,
+    FileText,
+    Globe,
+    Lock,
+    Shield,
+    ArrowRight,
+    Code,
+    Layers,
+    FileCheck,
+    Search
 } from "lucide-react";
 
 const STEPS = [
@@ -27,24 +38,26 @@ const STEPS = [
             <div className="space-y-6">
                 <div className="p-8 rounded-3xl bg-blue-600/10 border border-blue-500/20">
                     <h3 className="text-2xl font-bold text-blue-400 mb-4">Welcome to PE Org-AI-R</h3>
-                    <p className="text-lg text-slate-300 leading-relaxed">
-                        The PE Org-AI-R Platform is a sophisticated data orchestration and analytics platform engineered to help Private Equity firms assess the technological maturity and AI readiness of target portfolio companies.
+                    <p className="text-slate-300 leading-relaxed text-lg">
+                        You are about to deploy a next-generation AI intelligence platform designed for Private Equity due diligence.
+                        This system autonomously aggregates signals from SEC filings, patent databases, and job boards to compute
+                        an "AI Maturity Index" for target companies.
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
                         <h4 className="font-semibold text-white mb-2">What you'll learn</h4>
                         <ul className="space-y-2 text-slate-400">
-                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Setting up the full-stack environment</li>
-                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Deploying with Docker Compose</li>
+                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Deploying the Async Master Pipeline</li>
+                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Configuring Snowflake Vector Tables</li>
                             <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Navigating the Intelligence Hub</li>
                         </ul>
                     </div>
                     <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
                         <h4 className="font-semibold text-white mb-2">Platform Goals</h4>
                         <ul className="space-y-2 text-slate-400">
-                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Automate signal capture from SEC filings</li>
-                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Scale innovation activity tracking</li>
+                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Reduce due diligence time by 90%</li>
+                            <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Identify hidden AI implementation risks</li>
                             <li className="flex gap-2"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" /> Deliver sub-second metrics via Redis</li>
                         </ul>
                     </div>
@@ -64,17 +77,19 @@ const STEPS = [
                     {[
                         { title: "Docker & Docker Compose", desc: "For container orchestration and service isolation.", version: "V2.x+" },
                         { title: "Snowflake Account", desc: "Required for long-term intelligence storage and heavy analytical queries.", version: "Standard/Enterprise" },
-                        { title: "Python Runtime", desc: "Used for local development and running the master pipeline CLI.", version: "3.12+" }
+                        { title: "Python Runtime", desc: "Used for local development and running the master pipeline CLI.", version: "3.12+" },
+                        { title: "AWS Account", desc: "S3 Bucket access for storing raw PDF filings and unstructured data.", version: "Any" },
+                        { title: "PatentsView API Key", desc: "Access to USPTO patent data for innovation scoring.", version: "Free Tier" }
                     ].map((item, i) => (
                         <div key={i} className="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                            <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center border border-blue-500/30">
-                                <CheckCircle2 className="w-6 h-6 text-blue-400" />
+                            <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0 border border-blue-500/30">
+                                <Check className="w-5 h-5 text-blue-400" />
                             </div>
                             <div className="flex-1">
-                                <h4 className="text-white font-bold">{item.title}</h4>
-                                <p className="text-slate-400 text-sm">{item.desc}</p>
+                                <h4 className="font-bold text-white text-lg">{item.title}</h4>
+                                <p className="text-slate-400">{item.desc}</p>
                             </div>
-                            <div className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-mono border border-blue-500/20">
+                            <div className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
                                 {item.version}
                             </div>
                         </div>
@@ -90,32 +105,49 @@ const STEPS = [
         icon: <Database className="w-5 h-5" />,
         content: (
             <div className="space-y-6">
-                <p className="text-lg text-slate-300">The platform uses a centralized <code className="text-blue-400 font-mono">.env</code> file for secure credential management.</p>
-                <div className="rounded-2xl bg-[#011627] border border-white/10 overflow-hidden">
+                <p className="text-lg text-slate-300">The platform uses a centralized <span className="font-mono text-blue-400">.env</span> file for secure credential management.</p>
+
+                <div className="rounded-2xl bg-[#0c0c0e] border border-white/10 overflow-hidden">
                     <div className="flex items-center justify-between px-6 py-3 bg-white/5 border-b border-white/10">
-                        <span className="text-xs font-mono text-slate-400">.env</span>
-                        <button className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-2">
+                        <span className="text-xs font-mono text-slate-500">.env</span>
+                        <button className="text-xs flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors">
                             <Copy className="w-3 h-3" /> Copy
                         </button>
                     </div>
                     <pre className="p-6 text-sm font-mono text-blue-100 overflow-x-auto">
                         {`# === Snowflake Settings ===
-SNOWFLAKE_ACCOUNT="your-org-your-account"
-SNOWFLAKE_USER="your-user"
-SNOWFLAKE_PASSWORD="your-password"
-SNOWFLAKE_DATABASE="PE_ORGAIR"
+SNOWFLAKE_ACCOUNT=your_account
+SNOWFLAKE_USER=your_user
+SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_DATABASE=PE_ORGAIR
+SNOWFLAKE_SCHEMA=PUBLIC
+SNOWFLAKE_WAREHOUSE=your_warehouse
+SNOWFLAKE_ROLE=your_role
 
 # === Infrastructure ===
-REDIS_HOST="redis"
-NEXT_PUBLIC_API_URL="http://localhost:8000"`}
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+NEXT_PUBLIC_API_URL="http://localhost:8000"
+
+# === Data Providers ===
+PATENTSVIEW_API_KEY=your_key
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+S3_BUCKET=your_bucket
+AWS_REGION=us-east-1
+
+# === App Info ===
+APP_NAME=PE Org-AI-R Platform
+APP_VERSION=1.0.0`}
                     </pre>
                 </div>
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-4 items-start">
-                    <div className="p-2 rounded-lg bg-amber-500/20">
-                        <Settings className="w-4 h-4 text-amber-500" />
+                    <div className="p-2 rounded-lg bg-amber-500/20 shrink-0">
+                        <Settings className="w-5 h-5 text-amber-500" />
                     </div>
                     <div>
-                        <h5 className="text-amber-500 font-semibold text-sm">Pro Tip: Snowflake Roles</h5>
+                        <h5 className="font-bold text-amber-500 mb-1">Pro Tip: Snowflake Roles</h5>
                         <p className="text-slate-400 text-sm">Ensure your user has permissions to create tables or use a dedicated schema for the assessment data.</p>
                     </div>
                 </div>
@@ -201,41 +233,192 @@ NEXT_PUBLIC_API_URL="http://localhost:8000"`}
         duration: "10 min",
         icon: <Cpu className="w-5 h-5" />,
         content: (
-            <div className="space-y-8">
-                <div className="relative p-8 rounded-3xl bg-gradient-to-br from-blue-600/20 to-emerald-600/20 border border-white/10">
-                    <h3 className="text-xl font-bold text-white mb-6">Multi-Stage Asynchronous Pipeline</h3>
-                    <div className="flex flex-col md:flex-row items-center gap-4 justify-between">
-                        <div className="w-40 p-4 rounded-xl bg-[#0c0c0e] border border-white/10 text-center">
-                            <p className="text-xs text-blue-400 font-mono mb-2">COLLECTORS</p>
-                            <div className="space-y-1 text-[10px] text-slate-400">
-                                <p>Playwright</p>
-                                <p>SEC (EDGAR)</p>
-                                <p>PatentsView</p>
+            <div className="space-y-12">
+                {/* Section 1: Code Flow & Pipeline Architecture */}
+                <div className="space-y-6">
+                    <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <Layers className="w-6 h-6 text-blue-400" />
+                        Code Flow & Pipeline
+                    </h3>
+                    <div className="relative p-8 rounded-3xl bg-[#0c0c0e] border border-white/10">
+                        {/* Flow Diagram */}
+                        <div className="flex flex-col gap-8 relative z-10">
+
+                            {/* Trigger & Orchestration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-slate-400 font-mono uppercase tracking-widest mb-2">
+                                        <Play className="w-4 h-4 text-emerald-500" /> Trigger
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <Globe className="w-4 h-4 text-blue-400" />
+                                            <span className="font-mono text-sm text-white">POST /collect</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400">Initiates MasterPipeline for target</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 relative">
+                                    <div className="flex items-center gap-2 text-sm text-slate-400 font-mono uppercase tracking-widest mb-2">
+                                        <Cpu className="w-4 h-4 text-blue-500" /> Orchestration
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-blue-600/10 border border-blue-500/30">
+                                        <div className="font-bold text-white text-sm mb-1">MasterPipeline</div>
+                                        <p className="text-xs text-blue-200">Spawns concurrent asyncio tasks</p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <ChevronRight className="w-6 h-6 text-slate-600 hidden md:block" />
-                        <div className="w-40 p-4 rounded-xl bg-blue-600/20 border border-blue-500/30 text-center">
-                            <p className="text-xs text-white font-mono mb-2">FAST-API</p>
-                            <p className="text-[10px] text-blue-200">Master Orchestrator</p>
-                        </div>
-                        <ChevronRight className="w-6 h-6 text-slate-600 hidden md:block" />
-                        <div className="w-40 p-4 rounded-xl bg-[#0c0c0e] border border-white/10 text-center">
-                            <p className="text-xs text-emerald-400 font-mono mb-2">STORAGE</p>
-                            <div className="space-y-1 text-[10px] text-slate-400">
-                                <p>Snowflake (SSOT)</p>
-                                <p>Redis (Cache)</p>
-                                <p>S3 (Unstructured)</p>
+
+                            {/* Collection Layer */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm text-slate-400 font-mono uppercase tracking-widest mb-2">
+                                    <ArrowRight className="w-4 h-4 text-slate-600" /> Collection Parsers
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 rounded-xl bg-white/5 border border-white/10 dashed-border">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <FileText className="w-4 h-4 text-amber-500" />
+                                            <span className="font-semibold text-white text-sm">SEC Pipeline</span>
+                                        </div>
+                                        <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
+                                            <li>Fetch HTML/PDF filings</li>
+                                            <li>NLP Semantic Chunking</li>
+                                            <li>Regex Extraction (Item 1, 1A)</li>
+                                        </ul>
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-white/5 border border-white/10 dashed-border">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Search className="w-4 h-4 text-purple-500" />
+                                            <span className="font-semibold text-white text-sm">Signal Pipeline</span>
+                                        </div>
+                                        <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
+                                            <li>JobSpy (Job Boards)</li>
+                                            <li>PatentsView API</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Ingestion & Persistence */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-slate-400 font-mono uppercase tracking-widest mb-2">
+                                        <Database className="w-4 h-4 text-cyan-500" /> Ingestion & Persistence
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-cyan-900/10 border border-cyan-500/30">
+                                        <div className="font-bold text-white text-sm mb-1">SnowflakeDAO</div>
+                                        <p className="text-xs text-cyan-200 mb-2">MERGE INTO (Idempotency)</p>
+                                        <div className="flex gap-2">
+                                            <span className="px-2 py-1 bg-black/40 rounded text-[10px] font-mono text-slate-300">TABLE: Companies</span>
+                                            <span className="px-2 py-1 bg-black/40 rounded text-[10px] font-mono text-slate-300">TABLE: Signals</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-slate-400 font-mono uppercase tracking-widest mb-2">
+                                        <CheckCircle2 className="w-4 h-4 text-green-500" /> Post-Processing
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-green-900/10 border border-green-500/30">
+                                        <div className="font-bold text-white text-sm mb-1">Intelligence Scoring</div>
+                                        <p className="text-xs text-green-200">0-100 Weighted Calculation</p>
+                                        <div className="mt-2 text-[10px] font-mono text-slate-400">{'->'} Saved to company_signal_summary</div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>
-                <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-white">Why this stack?</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-400">
-                        <p><span className="text-blue-400 font-bold">FastAPI:</span> High-performance async cores for non-blocking I/O during heavy scraping.</p>
-                        <p><span className="text-emerald-400 font-bold">Snowflake:</span> Handles multi-million record signal datasets with zero maintenance indexing.</p>
-                        <p><span className="text-blue-400 font-bold">Redis:</span> Ensures the dashboard feels instantaneous by caching pre-aggregated maturity scores.</p>
-                        <p><span className="text-emerald-400 font-bold">Next.js 15:</span> Provides the reactivity needed for operator-level intelligence tooling.</p>
+
+                {/* Section 2: Infrastructure */}
+                <div className="space-y-6">
+                    <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <Server className="w-6 h-6 text-emerald-400" />
+                        Infrastructure
+                    </h3>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Docker Container */}
+                        <div className="lg:col-span-4 rounded-3xl bg-[#1e1e24] border-2 border-dashed border-slate-700 p-6 relative">
+                            <div className="absolute -top-3 left-6 px-2 bg-[#09090b] text-slate-400 text-xs font-mono flex items-center gap-2">
+                                <Box className="w-3 h-3" /> DOCKER COMPOSE
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Frontend */}
+                                <div className="p-4 rounded-xl bg-[#0c0c0e] border border-white/10 flex items-center gap-4">
+                                    <div className="p-2 bg-white/5 rounded-lg"><LayoutDashboard className="w-5 h-5 text-white" /></div>
+                                    <div>
+                                        <div className="text-white font-bold text-sm">Next.js Frontend</div>
+                                        <div className="text-xs text-slate-500">SSR + Client Fetch</div>
+                                    </div>
+                                </div>
+
+                                {/* Backend */}
+                                <div className="p-4 rounded-xl bg-[#0c0c0e] border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)] flex items-center gap-4">
+                                    <div className="p-2 bg-blue-600/20 rounded-lg"><Cpu className="w-5 h-5 text-blue-400" /></div>
+                                    <div>
+                                        <div className="text-white font-bold text-sm">FastAPI "Brain"</div>
+                                        <div className="text-xs text-slate-500">Singleton Pool</div>
+                                    </div>
+                                </div>
+
+                                {/* Redis */}
+                                <div className="p-4 rounded-xl bg-[#0c0c0e] border border-red-500/20 flex items-center gap-4">
+                                    <div className="p-2 bg-red-600/10 rounded-lg"><Database className="w-5 h-5 text-red-500" /></div>
+                                    <div>
+                                        <div className="text-white font-bold text-sm">Redis</div>
+                                        <div className="text-xs text-slate-500">Hot Cache (Stats)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-1 hidden lg:flex items-center justify-center">
+                            <ArrowRight className="w-8 h-8 text-slate-700" />
+                        </div>
+
+                        {/* External Services */}
+                        <div className="lg:col-span-7 space-y-4">
+                            {/* Snowflake */}
+                            <div className="p-6 rounded-3xl bg-[#0c0c0e] border border-cyan-500/30 flex flex-col md:flex-row gap-6 items-center">
+                                <div className="w-16 h-16 rounded-2xl bg-cyan-900/10 flex items-center justify-center shrink-0">
+                                    <Database className="w-8 h-8 text-cyan-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-lg font-bold text-white mb-2">Snowflake Data Cloud</h4>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 font-mono border border-white/5 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" /> VARIANT (JSON)
+                                        </div>
+                                        <div className="px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-300 font-mono border border-white/5 flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" /> Structured Tables
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* AWS S3 */}
+                            <div className="p-6 rounded-3xl bg-[#0c0c0e] border border-amber-500/30 flex flex-col md:flex-row gap-6 items-center">
+                                <div className="w-16 h-16 rounded-2xl bg-amber-900/10 flex items-center justify-center shrink-0">
+                                    <Cloud className="w-8 h-8 text-amber-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-lg font-bold text-white mb-2">AWS S3</h4>
+                                    <code className="block text-xs font-mono text-amber-500 mb-2">e-orgair-bucket-us-east-1</code>
+                                    <div className="flex gap-2">
+                                        <div className="px-2 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-slate-400 flex items-center gap-1">
+                                            <FileText className="w-3 h-3" /> PDF
+                                        </div>
+                                        <div className="px-2 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-slate-400 flex items-center gap-1">
+                                            <FileText className="w-3 h-3" /> HTML
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -374,3 +557,4 @@ export default function TutorialPage() {
         </div>
     );
 }
+

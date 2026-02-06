@@ -41,14 +41,21 @@ export default function RootLayout({
 
           <div className="mt-auto p-6 border-t border-slate-800">
             <nav className="space-y-1">
+              <Link
+                href="/docs"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-slate-100 hover:bg-white/5"
+              >
+                <BookOpen size={20} />
+                <span>Documentation</span>
+              </Link>
               <a
                 href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/docs`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-slate-100 hover:bg-white/5"
               >
-                <BookOpen size={20} />
-                <span>Documentation</span>
+                <Terminal size={20} />
+                <span>Swagger Docs</span>
               </a>
             </nav>
           </div>

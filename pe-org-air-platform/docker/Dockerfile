@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
     fonts-liberation \
     fonts-unifont \
+    wkhtmltopdf \
     && rm -rf /var/lib/apt/lists/*
 
 # Installing Python dependencies

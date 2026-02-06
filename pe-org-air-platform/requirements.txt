@@ -24,3 +24,4 @@ lxml>=6.0.2,<7.0.0
 pyrate-limiter==3.9.0 ; python_version >= "3.11" and python_version < "4.0"
 sqlalchemy>=2.0.45
 snowflake-sqlalchemy>=1.6.1
+pdfkit==1.0.0

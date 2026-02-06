@@ -23,7 +23,6 @@ interface SecDocument {
     company_name: string;
     filing_type: string;
     accession_number: string;
-    filing_date: string;
     s3_raw_path: string;
     processing_status: string;
     created_at: string;
@@ -138,7 +137,6 @@ export default function Explorer() {
                                         <th className="px-6 py-4 font-semibold">Document ID</th>
                                         <th className="px-6 py-4 font-semibold">Company</th>
                                         <th className="px-6 py-4 font-semibold">Type</th>
-                                        <th className="px-6 py-4 font-semibold">Date</th>
                                         <th className="px-6 py-4 font-semibold">Status</th>
                                         <th className="px-6 py-4 font-semibold">Actions</th>
                                     </tr>
@@ -158,7 +156,6 @@ export default function Explorer() {
                                                 <td className="px-6 py-4 text-sm">
                                                     <span className="bg-zinc-800 px-2 py-1 rounded text-xs font-bold border border-slate-700">{doc.filing_type}</span>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-slate-400">{new Date(doc.filing_date || '2025-01-01').toLocaleDateString()}</td>
                                                 <td className="px-6 py-4">
                                                     <span className="flex items-center gap-1.5 text-xs font-medium text-green-400">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-green-500" />

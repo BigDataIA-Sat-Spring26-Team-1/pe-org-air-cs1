@@ -16,6 +16,8 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 class SnowflakeService:
     @staticmethod

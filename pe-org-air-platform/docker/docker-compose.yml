@@ -38,6 +38,8 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    volumes:
+      - ../README.md:/app/PROJECT_README.md
 
   redis:
     image: redis:7-alpine

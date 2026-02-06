@@ -8,7 +8,6 @@ class SecDocument(BaseModel):
     company_name: str
     filing_type: str
     accession_number: str
-    filing_date: Optional[str] = None
     s3_raw_path: Optional[str] = None
     content_hash: Optional[str] = None
     processing_status: str = "PENDING"
@@ -22,7 +21,6 @@ class SecDocument(BaseModel):
                 "company_name": "CATERPILLAR INC",
                 "filing_type": "10-K",
                 "accession_number": "0000018230-23-000011",
-                "filing_date": "2023-02-15",
                 "s3_raw_path": "sec/0000018230/10-K/0000018230-23-000011/raw.html",
                 "content_hash": "a1b2c3d4...",
                 "processing_status": "COMPLETED",
