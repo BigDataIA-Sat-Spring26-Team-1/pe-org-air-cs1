@@ -11,7 +11,8 @@ import {
   ArrowUpRight,
   Loader2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -107,10 +108,13 @@ export default function Dashboard() {
             )}
             {stats?.status === "running" ? "Backfilling..." : "Run Global Backfill"}
           </button>
-          <button className="flex items-center gap-2 bg-[#18181b] border border-slate-800 hover:bg-zinc-800 text-white px-5 py-2.5 rounded-xl transition-all font-medium">
-            <Plus className="h-4 w-4 text-blue-400" />
-            Add Tracker
-          </button>
+          <Link
+            href="/manage"
+            className="flex items-center gap-2 bg-[#18181b] border border-slate-800 hover:bg-zinc-800 text-white px-5 py-2.5 rounded-xl transition-all font-medium"
+          >
+            <Settings className="h-4 w-4 text-blue-400" />
+            Management
+          </Link>
         </div>
       </div>
 

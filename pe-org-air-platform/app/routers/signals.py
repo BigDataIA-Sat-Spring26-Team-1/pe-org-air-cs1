@@ -144,13 +144,15 @@ async def collect_signals(request: SignalCollectionRequest, background_tasks: Ba
 async def list_signals(
     ticker: Optional[str] = None,
     company_name: Optional[str] = None,
+    company_id: Optional[str] = None,
     category: Optional[SignalCategory] = None,
     limit: int = Query(100, ge=1, le=500, description="Maximum number of signals to return"),
     offset: int = Query(0, ge=0, description="Number of signals to skip")
 ):
     """Lists granular signals for a company with pagination."""
-    target_company = await resolve_company(ticker, company_name)
-    company_id = target_company['id']
+    if not company_id:
+        target_company = await resolve_company(ticker, company_name)
+        company_id = target_company['id']
 
     cache_key = f"signals:list:{company_id}:{category if category else 'all'}:{limit}:{offset}"
     
@@ -189,13 +191,15 @@ async def list_signals(
 async def list_evidence(
     ticker: Optional[str] = None,
     company_name: Optional[str] = None,
+    company_id: Optional[str] = None,
     category: Optional[SignalCategory] = None,
     limit: int = Query(100, ge=1, le=500, description="Maximum number of evidence items to return"),
     offset: int = Query(0, ge=0, description="Number of evidence items to skip")
 ):
     """Lists granular evidence items (jobs, patents, etc) for a company with pagination."""
-    target_company = await resolve_company(ticker, company_name)
-    company_id = target_company['id']
+    if not company_id:
+        target_company = await resolve_company(ticker, company_name)
+        company_id = target_company['id']
     
     # Fetch from DB with pagination
     evidence = await db.fetch_signal_evidence(company_id, category, limit, offset)

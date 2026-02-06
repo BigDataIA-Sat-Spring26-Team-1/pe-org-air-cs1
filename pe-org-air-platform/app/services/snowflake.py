@@ -580,7 +580,7 @@ class SnowflakeService:
                 c.ticker,
                 (SELECT COUNT(*) FROM external_signals s WHERE s.company_id = c.id) as signals,
                 (SELECT COUNT(*) FROM signal_evidence e WHERE e.company_id = c.id) as evidence,
-                (SELECT COUNT(*) FROM documents d WHERE d.cik = c.cik OR (c.ticker IS NOT NULL AND d.cik = c.ticker)) as filings
+                (SELECT COUNT(*) FROM documents d WHERE UPPER(d.cik) = UPPER(c.cik) OR (c.ticker IS NOT NULL AND UPPER(d.cik) = UPPER(c.ticker))) as filings
             FROM companies c
             WHERE c.is_deleted = FALSE {where_clause}
             ORDER BY signals DESC

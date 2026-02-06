@@ -27,4 +27,14 @@ async def backfill_evidence_endpoint(background_tasks: BackgroundTasks):
             description="Retrieve progress statistics and status of the current or most recent backfill operation.")
 async def get_evidence_stats():
     """Get evidence collection statistics"""
-    return backfill_service.stats
+    stats = backfill_service.stats.copy()
+    
+    # If idle, fetch actual historical stats from DB to show on dashboard
+    if stats["status"] == "idle" or stats["status"] == "completed":
+        from app.services.snowflake import db
+        company_metrics = await db.fetch_company_metrics()
+        stats["companies"] = len(company_metrics)
+        stats["signals"] = sum(c['signals'] for c in company_metrics)
+        stats["documents"] = sum(c['filings'] for c in company_metrics)
+    
+    return stats

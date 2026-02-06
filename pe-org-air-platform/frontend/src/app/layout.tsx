@@ -33,14 +33,22 @@ export default function RootLayout({
               <NavItem href="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />
               <NavItem href="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
               <NavItem href="/explorer" icon={<FileSearch size={20} />} label="SEC Explorer" />
+              <NavItem href="/manage" icon={<Settings size={20} />} label="Management" />
               <NavItem href="/playground" icon={<Terminal size={20} />} label="API Playground" />
             </nav>
           </div>
 
           <div className="mt-auto p-6 border-t border-slate-800">
             <nav className="space-y-1">
-              <NavItem href="/docs" icon={<BookOpen size={20} />} label="Documentation" />
-              <NavItem href="/settings" icon={<Settings size={20} />} label="Settings" />
+              <a
+                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/docs`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-400 hover:text-slate-100 hover:bg-white/5"
+              >
+                <BookOpen size={20} />
+                <span>Documentation</span>
+              </a>
             </nav>
           </div>
         </aside>
