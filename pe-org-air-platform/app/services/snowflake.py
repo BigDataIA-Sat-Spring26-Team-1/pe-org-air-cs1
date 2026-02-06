@@ -169,10 +169,61 @@ class SnowflakeService:
     async def execute_many(self, query: str, params_list: List[tuple]) -> None:
         await asyncio.to_thread(self._execute_many, query, params_list)
     
+    # Industries
+    async def fetch_industries(self) -> List[Dict[str, Any]]:
+        query = "SELECT * FROM industries ORDER BY name"
+        return await self.fetch_all(query)
+
+    async def fetch_industry_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        query = "SELECT * FROM industries WHERE name = %s LIMIT 1"
+        return await self.fetch_one(query, (name,))
+
     # Companies
     async def fetch_company(self, company_id: str) -> Optional[Dict[str, Any]]:
         query = "SELECT * FROM companies WHERE id = %s AND is_deleted = FALSE"
         return await self.fetch_one(query, (company_id,))
+
+    async def fetch_company_by_ticker(self, ticker: str) -> Optional[Dict[str, Any]]:
+        query = "SELECT * FROM companies WHERE ticker = %s AND is_deleted = FALSE LIMIT 1"
+        return await self.fetch_one(query, (ticker,))
+
+    async def fetch_companies_by_ticker_or_name(self, ticker: Optional[str], name: Optional[str]) -> List[Dict[str, Any]]:
+        query = "SELECT id, ticker, name FROM companies WHERE (ticker = %s OR name = %s) AND is_deleted = FALSE"
+        return await self.fetch_all(query, (ticker, name))
+
+    async def count_industries(self) -> int:
+        query = "SELECT COUNT(*) AS cnt FROM industries"
+        res = await self.fetch_one(query)
+        return res['cnt'] if res else 0
+
+    async def create_sec_document(self, doc_data: Dict[str, Any]) -> None:
+        query = """
+            MERGE INTO documents AS target
+            USING (SELECT %s AS id) AS source
+            ON target.document_id = source.id
+            WHEN MATCHED THEN UPDATE SET processing_status = 'UPDATED'
+            WHEN NOT MATCHED THEN INSERT (
+                document_id, cik, company_name, filing_type, 
+                accession_number, s3_raw_path, content_hash, processing_status, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'COMPLETED', CURRENT_TIMESTAMP())
+        """
+        params = (
+            doc_data['doc_id'],
+            doc_data['doc_id'], doc_data['meta'].cik, doc_data['meta'].company_name, doc_data['meta'].filing_type,
+            doc_data['meta'].accession_number, doc_data['s3_key'], doc_data['content_hash']
+        )
+        await self.execute(query, params)
+
+    async def create_sec_document_chunks_bulk(self, chunk_params: List[tuple]) -> None:
+        if not chunk_params:
+            return
+        query = """
+            INSERT INTO document_chunks (
+                chunk_id, document_id, chunk_index, 
+                section_name, chunk_text, token_count
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        await self.execute_many(query, chunk_params)
 
     async def fetch_companies(self, limit: int, offset: int, industry_id: Optional[str] = None) -> List[Dict[str, Any]]:
         if industry_id:
@@ -224,11 +275,6 @@ class SnowflakeService:
     async def delete_company(self, company_id: str) -> None:
         query = "UPDATE companies SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP() WHERE id = %s"
         await self.execute(query, (company_id,))
-    
-    # Industries
-    async def fetch_industries(self) -> List[Dict[str, Any]]:
-        query = "SELECT * FROM industries ORDER BY name"
-        return await self.fetch_all(query)
 
     # Assessments
     async def fetch_assessment(self, assessment_id: str) -> Optional[Dict[str, Any]]:

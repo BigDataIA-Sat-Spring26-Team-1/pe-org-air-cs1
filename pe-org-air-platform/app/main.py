@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.config import settings
 from app.services.snowflake import db
 from app.logging_conf import setup_logging, get_logger
-from app.routers import companies, assessments, health, industries, config, signals, sec
+from app.routers import companies, assessments, health, industries, config, signals, sec, evidence
 
 # Setup logging
 setup_logging()
@@ -71,8 +71,7 @@ async def lifespan(app: FastAPI):
 
         # 3. Check for Seed Data
         try:
-            count_res = await db.fetch_one("SELECT COUNT(*) AS cnt FROM industries")
-            count = count_res['cnt'] if count_res else 0
+            count = await db.count_industries()
             
             if count == 0:
                 logger.info("Industries table is empty. Auto-seeding...")
@@ -115,6 +114,7 @@ app.include_router(industries.router, prefix="/api/v1/industries", tags=["Indust
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["Companies"])
 app.include_router(sec.router, prefix="/api/v1/documents", tags=["Documents"])
 app.include_router(signals.router, prefix="/api/v1/signals", tags=["External Signals"])
+app.include_router(evidence.router, prefix="/api/v1/evidence", tags=["Evidence"])
 app.include_router(assessments.router, prefix="/api/v1", tags=["Assessments"])
 
 @app.get("/")

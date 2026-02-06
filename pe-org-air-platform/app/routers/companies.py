@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query, status
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID, uuid4
-
+import json
 from app.models.company import CompanyCreate, CompanyResponse
+from app.models.signals import ExternalSignal, SignalCategory, SignalEvidence
 from app.models.common import PaginatedResponse
 from app.routers.routers_utils import create_paginated_response, get_offset
 from app.services.snowflake import db
@@ -106,3 +107,59 @@ async def delete_company(company_id: UUID):
     # Invalidate caches
     cache.delete(f"company:{company_id}")
     cache.delete_pattern("companies:list:*")
+
+@router.get("/{company_id}/signals/{category}", response_model=List[ExternalSignal])
+async def get_signals_by_company_category(company_id: UUID, category: SignalCategory):
+    """Get signals by category for a specific company"""
+    # Check existence
+    existing = await db.fetch_company(str(company_id))
+    if not existing:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    signals = await db.fetch_external_signals(str(company_id), category)
+    
+    signal_models = []
+    for s in signals:
+        try:
+            # Handle Snowflake Date objects
+            if hasattr(s.get('signal_date'), 'isoformat'):
+                s['signal_date'] = s['signal_date'].isoformat()
+            
+            # Parse JSON strings if needed
+            if isinstance(s.get('metadata'), str):
+                s['metadata'] = json.loads(s['metadata'])
+                
+            signal_models.append(ExternalSignal(**s))
+        except Exception:
+            continue
+            
+    return signal_models
+
+@router.get("/{company_id}/evidence", response_model=List[SignalEvidence])
+async def get_company_evidence(company_id: UUID):
+    """Get all evidence for a company"""
+    # Check existence
+    existing = await db.fetch_company(str(company_id))
+    if not existing:
+        raise HTTPException(status_code=404, detail="Company not found")
+        
+    evidence = await db.fetch_signal_evidence(str(company_id))
+    
+    evidence_models = []
+    for e in evidence:
+        try:
+            # Handle Snowflake Date objects
+            if hasattr(e.get('evidence_date'), 'isoformat'):
+                e['evidence_date'] = e['evidence_date'].isoformat()
+            
+            # Ensure metadata and tags are parsed
+            if isinstance(e.get('metadata'), str):
+                e['metadata'] = json.loads(e['metadata'])
+            if isinstance(e.get('tags'), str):
+                e['tags'] = json.loads(e['tags'])
+                
+            evidence_models.append(SignalEvidence(**e))
+        except Exception:
+            continue
+            
+    return evidence_models

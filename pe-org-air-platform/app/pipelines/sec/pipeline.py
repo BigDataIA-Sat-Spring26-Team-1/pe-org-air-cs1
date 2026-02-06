@@ -28,7 +28,7 @@ class SecPipeline:
         self.chunker = SemanticChunker()
         self.registry = DocumentRegistry()
 
-    async def run(self, tickers: List[str], limit: int = 2):
+    async def run_old(self, tickers: List[str], limit: int = 2):
         logger.info("pipeline_start", tickers=tickers)
 
         metadatas = await self.downloader.download_filings(
@@ -169,28 +169,11 @@ class SecPipeline:
 
     async def _save_to_db(self, doc_data):
         doc_id = doc_data["doc_id"]
-        meta = doc_data["meta"]
-        s3_key = doc_data["s3_key"]
         content_hash = doc_data["content_hash"]
         all_chunks = doc_data["all_chunks"]
 
-        await db.execute(
-            """
-            MERGE INTO documents AS target
-            USING (SELECT %s AS id) AS source
-            ON target.document_id = source.id
-            WHEN MATCHED THEN UPDATE SET processing_status = 'UPDATED'
-            WHEN NOT MATCHED THEN INSERT (
-                document_id, cik, company_name, filing_type, 
-                accession_number, s3_raw_path, content_hash, processing_status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'COMPLETED')
-            """,
-            (
-                doc_id,
-                doc_id, meta.cik, meta.company_name, meta.filing_type,
-                meta.accession_number, s3_key, content_hash
-            )
-        )
+        # Use service helpers
+        await db.create_sec_document(doc_data)
 
         chunk_params = []
         for ch in all_chunks:
@@ -201,14 +184,6 @@ class SecPipeline:
             ))
 
         if chunk_params:
-            await db.execute_many(
-                """
-                INSERT INTO document_chunks (
-                    chunk_id, document_id, chunk_index, 
-                    section_name, chunk_text, token_count
-                ) VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                chunk_params
-            )
+            await db.create_sec_document_chunks_bulk(chunk_params)
 
         self.registry.add(content_hash)

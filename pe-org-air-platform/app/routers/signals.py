@@ -21,12 +21,7 @@ async def resolve_company(ticker: Optional[str] = None, company_name: Optional[s
     if not ticker and not company_name:
         raise HTTPException(status_code=400, detail="Either 'ticker' or 'company_name' must be provided.")
 
-    query = """
-        SELECT id, ticker, name 
-        FROM companies 
-        WHERE (ticker = %s OR name = %s) AND is_deleted = FALSE
-    """
-    company_records = await db.fetch_all(query, (ticker, company_name))
+    company_records = await db.fetch_companies_by_ticker_or_name(ticker, company_name)
     
     if not company_records:
         raise HTTPException(
