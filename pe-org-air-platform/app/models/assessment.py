@@ -45,5 +45,20 @@ class AssessmentResponse(AssessmentBase):
         return self
 
     model_config = {
-        "from_attributes": True
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "company_id": "1dec222c-6aaa-484c-8a68-6ed9ccce0685",
+                "assessment_type": "due_diligence",
+                "assessment_date": "2026-02-06T00:00:00",
+                "primary_assessor": "Jane Doe",
+                "secondary_assessor": "John Smith",
+                "status": "draft",
+                "v_r_score": 75.0,
+                "confidence_lower": 70.0,
+                "confidence_upper": 80.0,
+                "created_at": "2026-02-06T00:00:00"
+            }
+        }
     }

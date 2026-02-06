@@ -6,7 +6,10 @@ from app.services.redis_cache import cache
 
 router = APIRouter()
 
-@router.get("/", response_model=List[IndustryResponse])
+@router.get("/", 
+            response_model=List[IndustryResponse],
+            summary="List industries",
+            description="Retrieve a list of all supported industries and their associated baseline risk factors.")
 async def list_industries():
     # Cache key for all industries (list is static-ish)
     cache_key = "industries:list"

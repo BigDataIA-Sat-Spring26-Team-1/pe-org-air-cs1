@@ -13,11 +13,11 @@ import json
 router = APIRouter()
 logger = logging.getLogger("app")
 
-# In-memory tracking of active collection tasks
+# Active collection tasks
 active_tasks = set()
 
 async def resolve_company(ticker: Optional[str] = None, company_name: Optional[str] = None) -> Dict[str, Any]:
-    """Helper to reconcile ticker/name to a company record from Snowflake."""
+    """Look up company by ticker or name."""
     if not ticker and not company_name:
         raise HTTPException(status_code=400, detail="Either 'ticker' or 'company_name' must be provided.")
 
@@ -42,7 +42,7 @@ async def resolve_company(ticker: Optional[str] = None, company_name: Optional[s
     return company_records[0]
 
 async def run_collection_task(request: SignalCollectionRequest):
-    """Background task to execute the MasterPipeline and save results."""
+    """Runs the MasterPipeline and saves results in the background."""
     ticker = request.ticker
     try:
         pipeline = MasterPipeline()
@@ -96,10 +96,13 @@ async def run_collection_task(request: SignalCollectionRequest):
         if ticker in active_tasks:
             active_tasks.remove(ticker)
 
-@router.post("/collect", status_code=202)
+@router.post("/collect", 
+             status_code=202,
+             summary="Collect signals",
+             description="Triggers the orchestrator to collect external signals (jobs, patents, etc.) for a specific company in the background.")
 async def collect_signals(request: SignalCollectionRequest, background_tasks: BackgroundTasks):
-    """Triggers external signal collection in the background."""
-    # 1. Reconcile and Verify Identity
+    """Start background data collection for a company."""
+    # Verify company exists
     target_company = await resolve_company(request.ticker, request.company_name)
 
     # Populate request object with complete data for the orchestrator
@@ -110,17 +113,16 @@ async def collect_signals(request: SignalCollectionRequest, background_tasks: Ba
     company_id = request.company_id
     ticker = request.ticker
 
-    # 2. Check active tasks registry to avoid concurrent runs
+    # Prevent concurrent runs
     if ticker in active_tasks:
         return {"message": f"Collection task for {ticker} is already in progress.", "status": "active"}
     
-    # 3. Check Snowflake for recent data (unless force_refresh is True)
+    # Check for recent results
     if not request.force_refresh:
         summary_data = await db.fetch_company_signal_summary(company_id)
         if summary_data:
             last_updated = summary_data.get('last_updated')
             if last_updated:
-                # Handle both awareness states
                 now = datetime.now(last_updated.tzinfo) if last_updated.tzinfo else datetime.utcnow()
                 if last_updated > now - timedelta(hours=24):
                     return {
@@ -129,13 +131,16 @@ async def collect_signals(request: SignalCollectionRequest, background_tasks: Ba
                         "summary": summary_data
                     }
 
-    # 4. Start background task
+    # Queue background task
     active_tasks.add(ticker)
     background_tasks.add_task(run_collection_task, request)
     
     return {"message": f"Started initial collection for {ticker} ({request.company_name}) in background.", "status": "started"}
 
-@router.get("/", response_model=List[ExternalSignal])
+@router.get("/", 
+            response_model=List[ExternalSignal],
+            summary="List all signals",
+            description="Retrieve a paginated list of all external intelligence signals, optionally filtered by company or category.")
 async def list_signals(
     ticker: Optional[str] = None,
     company_name: Optional[str] = None,
@@ -177,7 +182,10 @@ async def list_signals(
     cache.set_list(cache_key, signal_models, ttl_seconds=3600)
     return signal_models
 
-@router.get("/evidence", response_model=List[SignalEvidence])
+@router.get("/evidence", 
+            response_model=List[SignalEvidence],
+            summary="List all evidence",
+            description="Retrieve a paginated list of all granular evidence items (individual job postings, patents, etc.).")
 async def list_evidence(
     ticker: Optional[str] = None,
     company_name: Optional[str] = None,
@@ -212,7 +220,10 @@ async def list_evidence(
     
     return evidence_models
 
-@router.get("/summary", response_model=CompanySignalSummary)
+@router.get("/summary", 
+            response_model=CompanySignalSummary,
+            summary="Get company summary",
+            description="Retrieve the aggregated intelligence summary for a company, including composite scores and category breakdowns.")
 async def get_company_summary(
     ticker: Optional[str] = None,
     company_name: Optional[str] = None
@@ -239,7 +250,10 @@ async def get_company_summary(
     
     return summary_model
 
-@router.get("/details/{category}", response_model=List[ExternalSignal])
+@router.get("/details/{category}", 
+            response_model=List[ExternalSignal],
+            summary="Get signals by category",
+            description="Retrieve all granular signals belonging to a specific intelligence category (e.g., technology_hiring) for a company.")
 async def get_signals_by_category(
     category: SignalCategory,
     ticker: Optional[str] = None,

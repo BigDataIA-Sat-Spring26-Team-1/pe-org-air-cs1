@@ -46,10 +46,7 @@ class SecPipeline:
         }
 
     def _process_filing_sync(self, meta):
-        """
-        Synchronous processing method to be run in a thread pool.
-        Includes File I/O, S3 upload, Parsing (BS4/PDF), and Chunking.
-        """
+        """Process filing in a thread pool (I/O & CPU bound)."""
         results_chunk = {"processed": 0, "skipped": 0, "errors": 0, "doc_data": None}
         
         try:
@@ -78,7 +75,7 @@ class SecPipeline:
             else:
                 aws_service.upload_file(str(target_file), s3_raw_key)
 
-            # Parsing is CPU blocking
+            # CPU bound parsing
             sections = self.parser.parse(target_file, form_type=meta.filing_type)
             if not sections:
                 logger.warning("no_sections_extracted", file=meta.accession_number)
@@ -98,7 +95,7 @@ class SecPipeline:
             all_chunks = []
             chunk_index_counter = 0
 
-            # Chunking is CPU blocking
+            # CPU bound chunking
             for section_name, text in sections.items():
                 chunks = self.chunker.split_text(text)
                 for chunk_text in chunks:
@@ -131,7 +128,7 @@ class SecPipeline:
     async def run(self, tickers: List[str], limit: int = 2):
         logger.info("pipeline_start", tickers=tickers)
 
-        # 1. Download (Async/Threaded inside)
+        # Download filings
         metadatas = await self.downloader.download_filings(
             tickers=tickers,
             filing_types=["10-K", "10-Q", "8-K", "DEF 14A"],
@@ -148,8 +145,7 @@ class SecPipeline:
 
         loop = asyncio.get_event_loop()
         
-        # 2. Process each filling in thread pool to avoid blocking event loop
-        # (Parsing and S3 uploads are synchronous/blocking)
+        # Process filings via thread pool
         for meta in metadatas:
             # Run sync processing in thread
             res_chunk = await loop.run_in_executor(None, self._process_filing_sync, meta)
@@ -161,7 +157,7 @@ class SecPipeline:
             doc_data = res_chunk.get("doc_data")
             
             if doc_data:
-                # 3. DB writes are async, so we do them here in the main loop
+                # Async DB writes
                 await self._save_to_db(doc_data)
 
         logger.info("pipeline_complete", results=results)

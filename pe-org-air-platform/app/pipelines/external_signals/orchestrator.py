@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 class MasterPipeline:
-    """Orchestrates the end-to-end collection of AI readiness signals."""
+    """Manages data collection from all signal sources."""
 
     def __init__(self):
         self.job_collector = JobCollector()
@@ -23,23 +23,16 @@ class MasterPipeline:
         self.lead_collector = LeadershipCollector()
 
     async def run(self, company_name: str, ticker: str, company_id: str = None, job_days: int = 7, patent_years: int = 5) -> Dict[str, Any]:
-        """
-        Executes all collectors in parallel and prepares the data for Snowflake.
-        
-        Returns:
-            A dictionary with:
-            - summary: Data for the 'company_signal_summaries' table
-            - signals: List of data for the 'external_signals' table (includes raw evidence)
-        """
+        """Runs all collectors and prepares data for database."""
         if not company_id:
             company_id = str(uuid.uuid4())
 
         logger.info(f"--- Starting AI Audit for {company_name} ({ticker}) ---")
 
-        # 1. Foundation: Job collection happens first as it provides data for other collectors
+        # Fetch job signals
         job_res = await self.job_collector.collect(company_name, days=job_days)
         
-        # 2. Strategy: Other collectors run in parallel with a shared timeout
+        # Parallel collection of other signals
         tasks = {
             "Innovation (Patents)": self.patent_collector.collect(company_name, years=patent_years),
             "Digital Presence (Tech Stack)": self.tech_collector.collect(company_name),
@@ -49,7 +42,6 @@ class MasterPipeline:
         names = list(tasks.keys())
         coroutines = list(tasks.values())
 
-        # Use gather to run the rest concurrently
         other_results = await asyncio.gather(*coroutines, return_exceptions=True)
         
         results = [job_res] + list(other_results)
@@ -63,7 +55,6 @@ class MasterPipeline:
             sanitized_results.append(r)
 
 
-        # Map results to our ExternalSignal model for database storage
         signals: List[Dict[str, Any]] = []
         all_evidence: List[Dict[str, Any]] = []
         
@@ -81,7 +72,6 @@ class MasterPipeline:
             signal_id = signal.id
             signals.append(signal.model_dump(mode='json'))
             
-            # Create granular evidence items linked to this signal
             for item in res.evidence:
                 evidence = SignalEvidence(
                     signal_id=signal_id,
@@ -97,47 +87,44 @@ class MasterPipeline:
                 )
                 all_evidence.append(evidence.model_dump(mode='json'))
 
-        # Group data for the high-level summary table
+        # Aggregate summary scores
         summary_data = {
             "company_id": company_id,
             "ticker": ticker,
-            "technology_hiring_score": next((s.normalized_score for s in sanitized_results if s.category == SignalCategory.TECHNOLOGY_HIRING), 0.0),
-            "innovation_activity_score": next((s.normalized_score for s in sanitized_results if s.category == SignalCategory.INNOVATION_ACTIVITY), 0.0),
-            "digital_presence_score": next((s.normalized_score for s in sanitized_results if s.category == SignalCategory.DIGITAL_PRESENCE), 0.0),
-            "leadership_signals_score": next((s.normalized_score for s in sanitized_results if s.category == SignalCategory.LEADERSHIP_SIGNALS), 0.0),
-            "signal_count": len(sanitized_results)
+            "technology_hiring_score": 0.0,
+            "innovation_activity_score": 0.0,
+            "digital_presence_score": 0.0,
+            "leadership_signals_score": 0.0,
+            "composite_score": 0.0,
+            "signal_count": len(signals)
         }
 
-        # Core scoring weights for the composite AI readiness index
+        for res in sanitized_results:
+            if res.category == SignalCategory.TECHNOLOGY_HIRING:
+                summary_data["technology_hiring_score"] = res.normalized_score
+            elif res.category == SignalCategory.INNOVATION_ACTIVITY:
+                summary_data["innovation_activity_score"] = res.normalized_score
+            elif res.category == SignalCategory.DIGITAL_PRESENCE:
+                summary_data["digital_presence_score"] = res.normalized_score
+            elif res.category == SignalCategory.LEADERSHIP_SIGNALS:
+                summary_data["leadership_signals_score"] = res.normalized_score
+
+        # Calculate composite score (weighted average)
         weights = {
-            "technology_hiring_score": 0.30,   # Hiring intensity
-            "innovation_activity_score": 0.25, # Patent & R&D depth
-            "digital_presence_score": 0.25,    # Technical stack footprint
-            "leadership_signals_score": 0.20   # Executive commitment
+            "technology_hiring_score": 0.35,
+            "innovation_activity_score": 0.25,
+            "digital_presence_score": 0.20,
+            "leadership_signals_score": 0.20
         }
         
-        composite = sum(summary_data[k] * (weights.get(k, 0)) for k in summary_data if k in weights)
-        summary_data["composite_score"] = round(composite, 2)
-        summary_data["last_updated"] = datetime.utcnow()
-
-        summary = CompanySignalSummary(**summary_data)
-
-        logger.info(f"Audit for {ticker} finished. Final Score: {summary.composite_score}")
+        composite = 0.0
+        for key, weight in weights.items():
+            composite += summary_data[key] * weight
         
+        summary_data["composite_score"] = round(composite, 2)
+
         return {
-            "summary": summary.model_dump(mode='json'),
+            "summary": summary_data,
             "signals": signals,
             "evidence": all_evidence
         }
-
-# Example usage entry point
-async def main():
-    pipeline = MasterPipeline()
-    result = await pipeline.run("Caterpillar Inc.", "CAT")
-    
-    # This structure is now ready to be pushed to Snowflake
-    print(f"Summary: {result['summary']}")
-    print(f"Number of detailed signals captured: {len(result['signals'])}")
-
-if __name__ == "__main__":
-    asyncio.run(main())

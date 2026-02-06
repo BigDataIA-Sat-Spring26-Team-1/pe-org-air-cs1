@@ -20,7 +20,7 @@ logging.getLogger("snowflake.connector").setLevel(logging.WARNING)
 class SnowflakeService:
     @staticmethod
     def _clean_data(val: Any) -> Any:
-        """Sanitizes data for Snowflake ingestion, handling NaN and None cases."""
+        """Fixes NaN/None values for Snowflake."""
         if val is None:
             return None
         # Handle Pandas/Numpy NaN
@@ -72,11 +72,11 @@ class SnowflakeService:
             return True
 
     async def connect(self):
-        """Establish the persistent connection."""
+        """Open Snowflake connection."""
         await asyncio.to_thread(self.get_connection)
 
     async def close(self):
-        """Close the persistent connection."""
+        """Close Snowflake connection."""
         if self._conn:
             await asyncio.to_thread(self._conn.close)
             self._conn = None

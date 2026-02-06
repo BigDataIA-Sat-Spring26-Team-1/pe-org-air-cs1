@@ -17,10 +17,10 @@ class CompanyBase(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "name": "Tesla, Inc.",
-                "ticker": "TSLA",
+                "name": "Caterpillar Inc.",
+                "ticker": "CAT",
                 "industry_id": "550e8400-e29b-41d4-a716-446655440001",
-                "position_factor": 0.85
+                "position_factor": 0.5
             }
         }
     }
@@ -34,5 +34,16 @@ class CompanyResponse(CompanyBase):
     updated_at: datetime
 
     model_config = {
-        "from_attributes": True
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "id": "1dec222c-6aaa-484c-8a68-6ed9ccce0685",
+                "name": "Caterpillar Inc.",
+                "ticker": "CAT",
+                "industry_id": "550e8400-e29b-41d4-a716-446655440001",
+                "position_factor": 0.5,
+                "created_at": "2026-02-06T00:00:00",
+                "updated_at": "2026-02-06T00:00:00"
+            }
+        }
     }

@@ -13,7 +13,11 @@ router = APIRouter()
 
 # Assessments Endpoints
 
-@router.post("/assessments", response_model=AssessmentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/assessments", 
+             response_model=AssessmentResponse, 
+             status_code=status.HTTP_201_CREATED,
+             summary="Create assessment",
+             description="Initiate a new AI Maturity assessment for a company.")
 async def create_assessment(assessment: AssessmentCreate):
     new_id = uuid4()
     data = assessment.model_dump()
@@ -32,7 +36,10 @@ async def create_assessment(assessment: AssessmentCreate):
     created = await db.fetch_assessment(str(new_id))
     return created
 
-@router.get("/assessments", response_model=PaginatedResponse[AssessmentResponse])
+@router.get("/assessments", 
+            response_model=PaginatedResponse[AssessmentResponse],
+            summary="List assessments",
+            description="Retrieve a paginated list of assessments, filterable by company.")
 async def list_assessments(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -58,7 +65,10 @@ async def list_assessments(
     cache.set(cache_key, response, ttl_seconds=60)
     return response
 
-@router.get("/assessments/{assessment_id}", response_model=AssessmentResponse)
+@router.get("/assessments/{assessment_id}", 
+            response_model=AssessmentResponse,
+            summary="Get assessment",
+            description="Retrieve detailed information about a specific assessment.")
 async def get_assessment(assessment_id: UUID):
     cache_key = f"assessment:{assessment_id}"
     cached = cache.get(cache_key, AssessmentResponse)
@@ -73,7 +83,10 @@ async def get_assessment(assessment_id: UUID):
     cache.set(cache_key, response, ttl_seconds=120) # 2 mins TTL
     return response
 
-@router.patch("/assessments/{assessment_id}/status", response_model=AssessmentResponse)
+@router.patch("/assessments/{assessment_id}/status", 
+              response_model=AssessmentResponse,
+              summary="Update assessment status",
+              description="Transition an assessment through different workflow states (e.g., from 'draft' to 'submitted').")
 async def update_assessment_status(assessment_id: UUID, status: AssessmentStatus = Body(..., embed=True)):
     # Check existence
     item = await db.fetch_assessment(str(assessment_id))
@@ -91,7 +104,11 @@ async def update_assessment_status(assessment_id: UUID, status: AssessmentStatus
 
 # Dimension Scores Endpoints
 
-@router.post("/assessments/{assessment_id}/scores", response_model=DimensionScoreResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/assessments/{assessment_id}/scores", 
+             response_model=DimensionScoreResponse, 
+             status_code=status.HTTP_201_CREATED,
+             summary="Add dimension score",
+             description="Assign a score to a specific dimension (e.g., Data Infrastructure) within an assessment.")
 async def add_dimension_score(assessment_id: UUID, score: DimensionScoreCreate):
     # Verify assessment
     assessment = await db.fetch_assessment(str(assessment_id))
@@ -115,12 +132,18 @@ async def add_dimension_score(assessment_id: UUID, score: DimensionScoreCreate):
     
     return {**data, "id": new_id, "created_at": "2024-01-01T00:00:00Z"}
     
-@router.get("/assessments/{assessment_id}/scores", response_model=List[DimensionScoreResponse])
+@router.get("/assessments/{assessment_id}/scores", 
+            response_model=List[DimensionScoreResponse],
+            summary="Get dimension scores",
+            description="Retrieve all dimension scores for a specific assessment.")
 async def get_dimension_scores(assessment_id: UUID):
     scores = await db.fetch_dimension_scores(str(assessment_id))
     return [DimensionScoreResponse.model_validate(s) for s in scores]
 
-@router.put("/scores/{score_id}", response_model=DimensionScoreResponse)
+@router.put("/scores/{score_id}", 
+            response_model=DimensionScoreResponse,
+            summary="Update dimension score",
+            description="Modify an existing dimension score and its associated confidence.")
 async def update_dimension_score(score_id: UUID, score_update: DimensionScoreCreate):
     await db.update_dimension_score(str(score_id), score_update.score, score_update.confidence)
     

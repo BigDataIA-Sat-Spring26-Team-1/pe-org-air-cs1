@@ -35,7 +35,9 @@ async def _run_pipeline(tickers: List[str], limit: int) -> None:
                 active_tasks.remove(ticker)
 
 
-@router.post("/collect")
+@router.post("/collect",
+             summary="Collect SEC filings",
+             description="Trigger the SEC pipeline to download, parse, and chunk filings (10-K, 10-Q, etc.) for target companies.")
 async def collect_documents(req: SecCollectRequest, background_tasks: BackgroundTasks):
     """
     Trigger document collection for one or more tickers.
@@ -71,7 +73,10 @@ async def collect_documents(req: SecCollectRequest, background_tasks: Background
     }
 
 
-@router.get("", response_model=List[SecDocument])
+@router.get("", 
+            response_model=List[SecDocument],
+            summary="List SEC documents",
+            description="Retrieve a list of processed SEC documents, filterable by company, ticker, or filing type.")
 async def list_documents(
     company: Optional[str] = Query(default=None, description="Filter by ticker or company_name"),
     filing_type: Optional[str] = Query(default=None, description="Filter by filing_type e.g. 10-K"),
@@ -85,7 +90,10 @@ async def list_documents(
     return [SecDocument(**d) for d in docs]
 
 
-@router.get("/{document_id}", response_model=SecDocument)
+@router.get("/{document_id}", 
+            response_model=SecDocument,
+            summary="Get document details",
+            description="Retrieve metadata for a specific SEC document.")
 async def get_document(document_id: str):
     """Get document with metadata."""
     doc = await db.fetch_sec_document(document_id)
@@ -94,7 +102,10 @@ async def get_document(document_id: str):
     return SecDocument(**doc)
 
 
-@router.get("/{document_id}/chunks", response_model=List[SecDocumentChunk])
+@router.get("/{document_id}/chunks", 
+            response_model=List[SecDocumentChunk],
+            summary="Get document chunks",
+            description="Retrieve the text chunks extracted from an SEC document, optionally filtered by section (e.g., 'Item 1. Business').")
 async def get_document_chunks(
     document_id: str,
     section: Optional[str] = Query(default=None, description="Filter by section_name"),

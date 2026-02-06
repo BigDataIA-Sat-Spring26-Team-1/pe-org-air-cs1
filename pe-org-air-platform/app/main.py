@@ -94,7 +94,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
+    description="""
+# PE OrgAIR Platform
+Intelligence-driven platform for assessing AI Maturity in Private Equity target companies.
+    
+## Features
+* **External Intelligence**: Dynamically collect signals (jobs, patents, tech stack) from top web sources.
+* **SEC Pipeline**: Automated download, parsing, and semantic chunking of SEC filings.
+* **AI Maturity Assessment**: Structured framework for evaluating companies across 7 key dimensions.
+* **Snowflake Integration**: High-performance data storage and enrichment.
+    """,
     version=settings.APP_VERSION,
+    contact={
+        "name": "Advanced Agentic Coding Team",
+        "url": "https://github.com/pe-org-air",
+    },
+    license_info={
+        "name": "Proprietary",
+    },
     lifespan=lifespan
 )
 

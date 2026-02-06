@@ -48,5 +48,17 @@ class DimensionScoreResponse(DimensionScoreBase):
     created_at: datetime
 
     model_config = {
-        "from_attributes": True
+        "from_attributes": True,
+        "json_schema_extra": {
+            "example": {
+                "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "assessment_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                "dimension": "data_infrastructure",
+                "score": 85.5,
+                "weight": 0.25,
+                "confidence": 0.9,
+                "evidence_count": 12,
+                "created_at": "2026-02-06T00:00:00"
+            }
+        }
     }

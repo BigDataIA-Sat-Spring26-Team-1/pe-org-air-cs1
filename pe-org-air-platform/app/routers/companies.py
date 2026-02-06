@@ -11,7 +11,11 @@ from app.services.redis_cache import cache
 
 router = APIRouter()
 
-@router.post("/", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", 
+             response_model=CompanyResponse, 
+             status_code=status.HTTP_201_CREATED,
+             summary="Create a new company",
+             description="Register a new company in the system for intelligence tracking.")
 async def create_company(company: CompanyCreate):
     new_id = uuid4()
     company_data = company.model_dump()
@@ -29,7 +33,10 @@ async def create_company(company: CompanyCreate):
         
     return created_company
 
-@router.get("/", response_model=PaginatedResponse[CompanyResponse])
+@router.get("/", 
+            response_model=PaginatedResponse[CompanyResponse],
+            summary="List companies",
+            description="Retrieve a paginated list of companies, optionally filtered by industry.")
 async def list_companies(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -57,7 +64,10 @@ async def list_companies(
     
     return response
 
-@router.get("/{company_id}", response_model=CompanyResponse)
+@router.get("/{company_id}", 
+            response_model=CompanyResponse,
+            summary="Get company details",
+            description="Retrieve detailed information about a specific company by its ID.")
 async def get_company(company_id: UUID):
     cache_key = f"company:{company_id}"
     
@@ -78,7 +88,10 @@ async def get_company(company_id: UUID):
     
     return company_model
 
-@router.put("/{company_id}", response_model=CompanyResponse)
+@router.put("/{company_id}", 
+            response_model=CompanyResponse,
+            summary="Update company",
+            description="Update the information for an existing company.")
 async def update_company(company_id: UUID, company_update: CompanyCreate):
     # Check existence
     existing = await db.fetch_company(str(company_id))
@@ -95,7 +108,10 @@ async def update_company(company_id: UUID, company_update: CompanyCreate):
     updated = await db.fetch_company(str(company_id))
     return updated
 
-@router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{company_id}", 
+               status_code=status.HTTP_204_NO_CONTENT,
+               summary="Delete company",
+               description="Mark a company as deleted in the system.")
 async def delete_company(company_id: UUID):
     # Check existence
     existing = await db.fetch_company(str(company_id))
@@ -108,7 +124,10 @@ async def delete_company(company_id: UUID):
     cache.delete(f"company:{company_id}")
     cache.delete_pattern("companies:list:*")
 
-@router.get("/{company_id}/signals/{category}", response_model=List[ExternalSignal])
+@router.get("/{company_id}/signals/{category}", 
+            response_model=List[ExternalSignal],
+            summary="Get signals by category",
+            description="Retrieve external intelligence signals for a company within a specific category (e.g., technology_hiring).")
 async def get_signals_by_company_category(company_id: UUID, category: SignalCategory):
     """Get signals by category for a specific company"""
     # Check existence
@@ -135,7 +154,10 @@ async def get_signals_by_company_category(company_id: UUID, category: SignalCate
             
     return signal_models
 
-@router.get("/{company_id}/evidence", response_model=List[SignalEvidence])
+@router.get("/{company_id}/evidence", 
+            response_model=List[SignalEvidence],
+            summary="Get company evidence",
+            description="Retrieve all granular evidence items (jobs, patents, etc.) collected for a specific company.")
 async def get_company_evidence(company_id: UUID):
     """Get all evidence for a company"""
     # Check existence
