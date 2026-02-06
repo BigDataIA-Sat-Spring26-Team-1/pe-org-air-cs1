@@ -1,0 +1,60 @@
+import boto3
+from botocore.exceptions import ClientError
+import structlog
+from app.config import settings
+
+logger = structlog.get_logger()
+
+
+class AWSService:
+    def __init__(self):
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            self.s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_REGION
+            )
+        else:
+            logger.warning("AWS credentials missing")
+            self.s3_client = None
+
+        self.bucket = settings.S3_BUCKET
+
+    def file_exists(self, s3_key: str) -> bool:
+        if not self.s3_client:
+            return False
+        try:
+            self.s3_client.head_object(Bucket=self.bucket, Key=s3_key)
+            return True
+        except ClientError:
+            return False
+
+    def upload_file(self, file_path: str, s3_key: str) -> bool:
+        if not self.s3_client:
+            return False
+        try:
+            self.s3_client.upload_file(file_path, self.bucket, s3_key)
+            logger.info("request_sent", type="upload", bucket=self.bucket, key=s3_key)
+            return True
+        except ClientError as e:
+            logger.error("upload_failed", error=str(e), key=s3_key)
+            return False
+
+    def upload_bytes(self, data: bytes, s3_key: str, content_type: str = "text/plain") -> bool:
+        if not self.s3_client:
+            return False
+        try:
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=s3_key,
+                Body=data,
+                ContentType=content_type
+            )
+            return True
+        except ClientError as e:
+            logger.error("upload_bytes_failed", error=str(e), key=s3_key)
+            return False
+
+
+aws_service = AWSService()
