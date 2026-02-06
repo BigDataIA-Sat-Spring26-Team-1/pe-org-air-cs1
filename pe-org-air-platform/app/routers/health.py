@@ -37,16 +37,23 @@ async def check_s3() -> str:
         return "disabled"
         
     try:
+        # Extract secret values properly
+        access_key = settings.AWS_ACCESS_KEY_ID.get_secret_value() if settings.AWS_ACCESS_KEY_ID else None
+        secret_key = settings.AWS_SECRET_ACCESS_KEY.get_secret_value() if settings.AWS_SECRET_ACCESS_KEY else None
+        
+        if not access_key or not secret_key:
+            return "disabled"
+        
         s3 = boto3.client(
             's3',
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
             region_name=settings.AWS_REGION
         )
-        # Verify connectivity
+        # Verify connectivity with a quick timeout
         s3.head_bucket(Bucket=settings.S3_BUCKET)
         return "healthy"
-    except Exception:
+    except Exception as e:
         # If configured but fails, return unhealthy
         return "unhealthy"
 

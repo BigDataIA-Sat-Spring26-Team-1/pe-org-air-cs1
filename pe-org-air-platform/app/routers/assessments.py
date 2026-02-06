@@ -92,6 +92,26 @@ async def update_assessment_status(assessment_id: UUID, status: AssessmentStatus
     item = await db.fetch_assessment(str(assessment_id))
     if not item:
         raise HTTPException(status_code=404, detail="Assessment not found")
+    
+    # Validate status transition
+    current_status = AssessmentStatus(item['status'])
+    new_status = status
+    
+    # Define valid transitions
+    valid_transitions = {
+        AssessmentStatus.DRAFT: [AssessmentStatus.IN_PROGRESS],
+        AssessmentStatus.IN_PROGRESS: [AssessmentStatus.SUBMITTED],
+        AssessmentStatus.SUBMITTED: [AssessmentStatus.APPROVED],
+        AssessmentStatus.APPROVED: [AssessmentStatus.SUPERSEDED],
+        AssessmentStatus.SUPERSEDED: []  # Terminal state
+    }
+    
+    # Check if transition is valid
+    if new_status not in valid_transitions.get(current_status, []):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid status transition from '{current_status.value}' to '{new_status.value}'"
+        )
         
     await db.update_assessment_status(str(assessment_id), status.value)
     

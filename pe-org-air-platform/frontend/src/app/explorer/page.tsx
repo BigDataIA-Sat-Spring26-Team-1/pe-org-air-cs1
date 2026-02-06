@@ -14,6 +14,8 @@ import {
     Loader2,
     AlertCircle
 } from "lucide-react";
+import Link from "next/link";
+import React from "react";
 
 interface SecDocument {
     document_id: string;
@@ -165,12 +167,15 @@ export default function Explorer() {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2">
-                                                        <button className="p-2 hover:bg-zinc-800 rounded-lg text-slate-400 hover:text-white transition-all">
-                                                            <Download size={16} />
-                                                        </button>
-                                                        <button className="p-2 hover:bg-zinc-800 rounded-lg text-slate-400 hover:text-white transition-all">
+                                                        <a
+                                                            href={`https://www.sec.gov/cgi-bin/browse-edgar?CIK=${doc.cik}&action=getcompany`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="p-2 hover:bg-zinc-800 rounded-lg text-slate-400 hover:text-white transition-all"
+                                                            title="View on SEC Edgar"
+                                                        >
                                                             <ExternalLink size={16} />
-                                                        </button>
+                                                        </a>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -192,9 +197,12 @@ export default function Explorer() {
                                                                 </div>
                                                             </div>
                                                             <div className="flex flex-col justify-end">
-                                                                <button className="w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2">
+                                                                <Link
+                                                                    href={`/playground?path=/api/v1/documents/${doc.document_id}/chunks&run=true`}
+                                                                    className="w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/20 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
+                                                                >
                                                                     Inspect Semantic Chunks <ChevronRight size={16} />
-                                                                </button>
+                                                                </Link>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -231,5 +239,3 @@ export default function Explorer() {
         </div>
     );
 }
-
-import React from "react";

@@ -35,6 +35,7 @@ export default function RootLayout({
               <NavItem href="/explorer" icon={<FileSearch size={20} />} label="SEC Explorer" />
               <NavItem href="/manage" icon={<Settings size={20} />} label="Management" />
               <NavItem href="/playground" icon={<Terminal size={20} />} label="API Playground" />
+              <NavItem href="/tutorial" icon={<BookOpen size={20} />} label="Tutorials" />
             </nav>
           </div>
 

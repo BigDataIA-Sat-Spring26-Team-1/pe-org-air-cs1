@@ -50,6 +50,7 @@ interface Document {
     filing_date: string;
     company_name: string;
     processing_status: string;
+    cik?: string;
 }
 
 interface Company {
@@ -393,9 +394,26 @@ function FilingRow({ filing }: { filing: Document }) {
             </div>
             <div className="flex items-center gap-6">
                 <span className="text-xs text-slate-500 font-mono">{filing.filing_date || "Indexed Item"}</span>
-                <button className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:bg-blue-600/20 hover:text-blue-400 transition-all">
-                    <Download size={16} />
-                </button>
+                <div className="flex gap-2">
+                    {filing.cik && (
+                        <a
+                            href={`https://www.sec.gov/cgi-bin/browse-edgar?CIK=${filing.cik}&action=getcompany`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 hover:bg-zinc-800 rounded-lg text-slate-400 hover:text-white transition-all"
+                            title="View on SEC Edgar"
+                        >
+                            <ExternalLink size={16} />
+                        </a>
+                    )}
+                    <Link
+                        href={`/playground?path=/api/v1/documents/${filing.document_id}/chunks&run=true`}
+                        className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:bg-blue-600/20 hover:text-blue-400 transition-all"
+                        title="Inspect Semantic Chunks"
+                    >
+                        <Search size={16} />
+                    </Link>
+                </div>
             </div>
         </div>
     );

@@ -60,6 +60,7 @@ docker compose --env-file .env -f docker/docker-compose.yml up --build
 ```
 *   **Frontend Hub**: `http://localhost:3000`
 *   **API Backbone**: `http://localhost:8000`
+*   **Interactive Tutorial**: `http://localhost:3000/tutorial`
 
 ---
 
@@ -103,14 +104,27 @@ Integrations like S3 and PatentsView are designed to fail gracefully. If credent
 
 ## 🧪 Quality & Verification
 
-Run the full integration and unit suite:
+The platform maintains a robust test suite covering core logic, API integrity, and performance benchmarks.
+
+### Running Tests
+Execute the full suite within the containerized environment:
 ```bash
-docker compose exec api pytest -v
+# Run all tests
+docker compose --env-file .env -f docker/docker-compose.yml exec api pytest -v -s
 ```
-**Test Coverage Includes:**
-*   **Lifecycle Persistence**: Industry → Company → Assessment → Score flow.
-*   **Cache Invalidation**: Verifying that Redis purges stale company metrics when fresh signals arrive.
-*   **Case Normalization**: Testing consistent ticker resolving (e.g., `CAT` == `cat`).
+
+### Test Categories
+| Module | Focus Area |
+| :--- | :--- |
+| **API Integrity** (`test_api.py`) | Validates all REST endpoints, status codes, and payload validation. |
+| **Business Logic** (`test_flows.py`) | End-to-end verification of the Assessment -> Signal -> Score lifecycle. |
+| **Concurrency** (`test_concurrency.py`) | Stress tests the system's ability to handle parallel scraping tasks and SEM throttling. |
+| **Performance** (`test_performance_cache.py`) | Measures Redis hit rates and latency improvements for cached metrics. |
+| **External Systems** (`test_sec_downloader.py`) | Mocks SEC/PatentsView interactions to ensure resilient parsing logic. |
+| **Schema Integrity** (`test_models.py`) | Deep validation of Pydantic V2 models and data transformation rules. |
+
+### Continuous Validation
+The test suite is designed to be run as part of a CI/CD pipeline, ensuring that changes to the `MasterPipeline` do not regress scoring accuracy or rate-limit compliance.
 
 ---
 
